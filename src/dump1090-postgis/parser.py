@@ -9,7 +9,6 @@ https://github.com/bzamecnik/dump1090-archive
 https://github.com/slintak/adsb2influx
 """
 import abc
-import enum
 import logging
 import re
 import socket
@@ -78,7 +77,7 @@ class Dump1090Socket(MessageStream):
     :return: Generator for message strings, yields one full message at a time
     """
 
-    def __init__(self, hostname: string = HOST, port: int = PORT) -> MessageStream:
+    def __init__(self, hostname: string = HOST, port: int = PORT):
         self.port = port
         self.hostname = hostname
         super(Dump1090Socket, self).__init__()
@@ -99,7 +98,7 @@ class Dump1090Socket(MessageStream):
 
 class FileSource(MessageStream):
 
-    def __init__(self, file_path: string) -> MessageStream:
+    def __init__(self, file_path: string):
         self._file_path = file_path
         super(FileSource, self).__init__()
 
@@ -115,6 +114,9 @@ class FileSource(MessageStream):
 
 class AdsbMessage(object):
     """
+    ADSb message instance created from a string in Base Station format.
+
+    @Note: Instance attributes will be created dynamically in _update_attributes() from keys of NORMALIZE_MSG dict.
 
     Message parsing inspired from:
     https://github.com/slintak/adsb2influx
@@ -164,6 +166,10 @@ class AdsbMessage(object):
     }
 
     def __init__(self, message_stream: MessageStream):
+        """
+
+        :param message_stream:
+        """
         assert isinstance(message_stream, MessageStream)
         self.__message_stream = message_stream
         self.__re_msg = re.compile(self.REGEXP_MSG)
@@ -202,9 +208,23 @@ class AdsbMessage(object):
                 log.warning("Field {} not found".format(field))
         return msg_dict
 
+    def __update_attributes(self, attributes: dict):
+        """
+        Creates or updates the attributes of this instance.
+        :param attributes: Dictionary of attribute names and values
+        """
+        for attr, value in attributes.items():
+            setattr(self, attr, value)
+
     def __iter__(self):
+        """
+        Yields an instance of itself with dynamically created or updated instance attributes.
+        :param msg: ADSb message string
+        :return: Instance of itself updated with ADSb message values
+        """
         for msg in self.__message_stream:
-            yield self.__normalize_msg(msg)
+            self.__update_attributes(self.__normalize_msg(msg))
+            yield self
 
 
 if __name__ == "__main__":
@@ -213,4 +233,4 @@ if __name__ == "__main__":
     message_source = FileSource('messages.txt')
 
     for msg in AdsbMessage(message_source):
-        log.info(msg)
+        log.info(msg.__dict__)
