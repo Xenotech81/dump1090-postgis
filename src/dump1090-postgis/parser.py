@@ -10,15 +10,19 @@ https://github.com/slintak/adsb2influx
 """
 import abc
 import enum
+import logging
 import re
 import socket
 import string
 
 # The host on which dump1090 is running
-HOST = '83.155.90.184'
+#HOST = '83.155.90.184'
+HOST = 'localhost'
 # Standard Dump1090 port streaming in Base Station format
 PORT = 30003
 
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger(__name__)
 
 class MessageStream(abc.ABC):
     """
@@ -39,7 +43,7 @@ class MessageStream(abc.ABC):
             if msg_length == 22:
                 yield msg.strip()
             else:
-                print("Wrong message length ({}/22). Skipping message".format(msg_length))
+                log.error("Received wrong message length ({}/22). Skipping message '{}'".format(msg_length, msg))
 
         self._on_close()
 
@@ -61,7 +65,7 @@ class MessageStream(abc.ABC):
         Example string:
         MSG,8,1,1,400BE5,1,2019/10/16,20:48:00.473,2019/10/16,20:48:00.473,,,,,,,,,,,,0
 
-        :return: Iterator of ADSB message strings
+        :return: Iterator of ADSB message strings (file object like)
         """
 
 
@@ -81,7 +85,7 @@ class Dump1090Socket(MessageStream):
 
     def _initiate_stream(self):
         """
-        Generator for ADSB messages received from port on hostname.
+        Returns generator for ADSB message strings received from port on hostname.
         :return: Generator for message strings
         """
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -145,32 +149,58 @@ class AdsbMessage(object):
         'session': (lambda v: int(v)),
         'aircraft': (lambda v: int(v)),
         'flight': (lambda v: int(v)),
-        'callsign': (lambda v: v.strip()),
+        'callsign': (lambda v: v.strip() if v != '' else None),
         'altitude': (lambda v: int(v)),
         'speed': (lambda v: int(v)),
         'track': (lambda v: int(v)),
         'latitude': (lambda v: float(v)),
         'longitude': (lambda v: float(v)),
         'verticalrate': (lambda v: int(v)),
+        'squawk': (lambda v: int(v)),
         'alert': (lambda v: True if v == '-1' else False),
         'emergency': (lambda v: True if v == '-1' else False),
         'spi': (lambda v: True if v == '-1' else False),
         'onground': (lambda v: True if v == '-1' else False),
     }
 
-    def __init__(self, message_stream):
+    def __init__(self, message_stream: MessageStream):
         assert isinstance(message_stream, MessageStream)
         self.__message_stream = message_stream
         self.__re_msg = re.compile(self.REGEXP_MSG)
 
-    def __normalize_msg(self, msg):
-        print("Processing", msg)
+    def __normalize_msg(self, msg: string):
+        """
+        Identifies and casts field values of message string to data types and returns as dict.
+
+        First the message string is matched against the regex '__re_msg". If the match fails (if not ALL fields could
+        be identified in the string) an empty dict is returned. If the match was successful, each value of the dict
+        is cast to a Python data type using methods from 'NORMALIZE_MSG'. If the cast fails for an dict item
+        (when it is an empty string) None is assigned.
+
+        :param msg: ADSB message string
+        :return: Dict of fields of the message string cast to Python data types; Or empty dict if casting failed
+        """
+        log.debug("Normalizing: {}".format(msg))
+
+        log.debug("Matching fields...")
+        match = self.__re_msg.match(msg)
+        if match is not None:
+            msg_dict = match.groupdict()
+        else:
+            log.error("Could not identify all fields in '{}'. Skipping message.".format(msg))
+            return {}
+
+        log.info("Casting to data types...")
         for field, fnc in self.NORMALIZE_MSG.items():
-            if field in msg:
-                msg[field] = fnc(msg[field])
+            if field in msg_dict:
+                try:
+                    msg_dict[field] = fnc(msg_dict[field])
+                except ValueError as err:
+                    log.warning("Could not cast {}: {}".format(field, str(err)))
+                    msg_dict[field] = None
             else:
-                print("Field {} not found".format(field))
-        return msg
+                log.warning("Field {} not found".format(field))
+        return msg_dict
 
     def __iter__(self):
         for msg in self.__message_stream:
@@ -179,7 +209,14 @@ class AdsbMessage(object):
 
 if __name__ == "__main__":
 
+    # Feed messages from file for test purposes
+    def _file_stream(self):
+        file_name = 'messages.txt'
+        return open(file_name)
+
+    Dump1090Socket._initiate_stream = _file_stream
+
     message_source = Dump1090Socket()
 
     for msg in AdsbMessage(message_source):
-        print(msg)
+        log.info(msg)
