@@ -106,7 +106,7 @@ class FileSource(MessageStream):
         try:
             return open(self._file_path, 'r')
         except FileNotFoundError as err:
-            raise FileNotFoundError("Cannot read message source: {]".format(str(err)))
+            raise FileNotFoundError("Cannot read message source: {}".format(str(err)))
 
     def _on_close(self):
         self._message_iterator.close()
