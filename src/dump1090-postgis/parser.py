@@ -97,22 +97,6 @@ class Dump1090Socket(MessageStream):
         self._message_iterator.close()
 
 
-class MessageType(enum.Enum):
-    """
-    Message type enumerator.
-    From: http://woodair.net/sbs/article/barebones42_socket_data.htm
-    """
-    SEL = 'SELECTION CHANGE MESSAGE'
-    ID = 'NEW ID MESSAGE'
-    AIR = 'NEW AIRCRAFT MESSAGE'
-    STA = 'STATUS CHANGE MESSAGE'
-    CLK = 'CLICK MESSAGE'
-    MSG = 'TRANSMISSION MESSAGE'
-
-## Enumerator for transmission type (used only by MessageType MSG)
-TransmissionType = enum.IntEnum('TransmissionType', '1 2 3 4 5 6 7 8')
-
-
 class AdsbMessage(object):
     """
 
