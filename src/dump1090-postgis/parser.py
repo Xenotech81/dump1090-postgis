@@ -16,13 +16,13 @@ import socket
 import string
 
 # The host on which dump1090 is running
-#HOST = '83.155.90.184'
-HOST = 'localhost'
+HOST = '83.155.90.184'
 # Standard Dump1090 port streaming in Base Station format
 PORT = 30003
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
+
 
 class MessageStream(abc.ABC):
     """
@@ -92,6 +92,22 @@ class Dump1090Socket(MessageStream):
         sock.connect((self.hostname, int(self.port)))
 
         return sock.makefile()
+
+    def _on_close(self):
+        self._message_iterator.close()
+
+
+class FileSource(MessageStream):
+
+    def __init__(self, file_path: string) -> MessageStream:
+        self._file_path = file_path
+        super(FileSource, self).__init__()
+
+    def _initiate_stream(self) -> iter:
+        try:
+            return open(self._file_path, 'r')
+        except FileNotFoundError as err:
+            raise FileNotFoundError("Cannot read message source: {]".format(str(err)))
 
     def _on_close(self):
         self._message_iterator.close()
@@ -193,14 +209,8 @@ class AdsbMessage(object):
 
 if __name__ == "__main__":
 
-    # Feed messages from file for test purposes
-    def _file_stream(self):
-        file_name = 'messages.txt'
-        return open(file_name)
-
-    Dump1090Socket._initiate_stream = _file_stream
-
-    message_source = Dump1090Socket()
+    #message_source = Dump1090Socket()
+    message_source = FileSource('messages.txt')
 
     for msg in AdsbMessage(message_source):
         log.info(msg)
