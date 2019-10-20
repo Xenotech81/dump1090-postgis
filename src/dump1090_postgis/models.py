@@ -26,6 +26,16 @@ class Flight(object):
     def update(self, adsb: adsb_parser.AdsbMessage):
         """
         Updates the instance attributes with values from an ADSb message object and returns.
+
+        MSG types and contained info:
+        - 2: speed & latitude & longitude & onground
+        - 3: altitude & latitude & longitude
+        - 4: speed & track & verticalrate & onground
+        - 5: altitude OR altitude & vertical_rate OR altitude & speed & track
+        - 6: (speed & track) (verticalrate) squawk & alert & emergency & spi
+        - 7: altitude
+        - 8: onground
+
         :param adsb: Instance of AdsbMessage
         :returns Updated version of self
         """
