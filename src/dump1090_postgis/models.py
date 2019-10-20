@@ -1,6 +1,7 @@
 # from geoalchemy2 import Geometry
 import logging
 import string
+import time
 
 import adsb_parser
 
@@ -44,6 +45,13 @@ if __name__ == '__main__':
     flight = Flight('dummy')
 
     message_source = adsb_parser.FileSource('messages.txt')
+
+    i = 0
+    start = time.time()
     for msg in adsb_parser.AdsbMessage(message_source):
         flight.update(msg)
+        i += 1
         log.info(flight.__dict__)
+
+    duration = time.time() - start
+    print("{} operations in {}sec".format(i, duration))
