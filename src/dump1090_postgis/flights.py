@@ -52,4 +52,4 @@ if __name__ == '__main__':
         current_flights.update(msg)
 
     log.info(current_flights)
-    log.info(current_flights._flights['396444']._transmission_type_count)
+    log.info(list(current_flights._flights['396444'].flight_track()))

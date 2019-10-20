@@ -2,6 +2,7 @@
 import logging
 import string
 import time
+import pandas
 
 import adsb_parser
 
@@ -19,9 +20,17 @@ class Flight(object):
         self.verticalrate = None
         self.squawk = None
         self.onground = True
+        self._flight_track = pandas.DataFrame(columns=['time', 'x', 'y', 'z'])
         self.__flight_track_positions = []
         self.__flight_track_timestamps = []
         self._transmission_type_count = dict.fromkeys(range(1, 9, 1), 0)
+
+    def flight_track(self):
+        """
+        Returns a iterator over tuples of timestamp and xyz coordinates.
+        :return: Iterator of (time, (x, y, z))
+        """
+        return ((t, xyz) for t, xyz in zip(self.__flight_track_timestamps, self.__flight_track_positions))
 
     def update(self, adsb: adsb_parser.AdsbMessage):
         """
@@ -39,17 +48,26 @@ class Flight(object):
         :param adsb: Instance of AdsbMessage
         :returns Updated version of self
         """
+
+        MSG_FIELDS = {3: ('altitude', 'latitude', 'longitude'),
+                      4: ('speed', 'track', 'verticalrate', 'onground')
+                      }
+
+        if adsb.hexident != self.hexident:
+            log.error("Trying to update flight '{}' with ADSb message of flight '{}'".format(self.hexident, adsb.hexident))
+            return self
+
         self._transmission_type_count[adsb.transmission_type] += 1
 
-        self.hexident = adsb.hexident
         self.last_seen = adsb.gen_date + adsb.gen_time
-        self.position = (adsb.latitude, adsb.longitude, adsb.altitude)
         self.verticalrate = adsb.verticalrate
         self.onground = adsb.onground
 
         # Update only if msg includes coordinates
-        self.__flight_track_positions.append(self.position)
-        self.__flight_track_timestamps.append(self.last_seen)
+        if adsb.transmission_type == 3:
+            self.position = (adsb.latitude, adsb.longitude, adsb.altitude)
+            self.__flight_track_positions.append(self.position)
+            self.__flight_track_timestamps.append(self.last_seen)
 
         return self
 
