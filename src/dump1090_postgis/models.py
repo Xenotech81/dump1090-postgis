@@ -49,8 +49,10 @@ class Flight(object):
         :returns Updated version of self
         """
 
-        MSG_FIELDS = {3: ('altitude', 'latitude', 'longitude'),
-                      4: ('speed', 'track', 'verticalrate', 'onground')
+        MSG_FIELDS = {2: ('speed', 'latitude', 'longitude', 'onground'),
+                      3: ('altitude', 'latitude', 'longitude'),
+                      4: ('speed', 'track', 'verticalrate', 'onground'),
+                      8: ('onground',)
                       }
 
         if adsb.hexident != self.hexident:
@@ -58,10 +60,13 @@ class Flight(object):
             return self
 
         self._transmission_type_count[adsb.transmission_type] += 1
+        self.last_seen = adsb.gen_date_time
 
-        self.last_seen = adsb.gen_date + adsb.gen_time
-        self.verticalrate = adsb.verticalrate
-        self.onground = adsb.onground
+        try:
+            for field in MSG_FIELDS[adsb.transmission_type]:
+                setattr(self, field, getattr(adsb, field))
+        except KeyError:
+            log.debug("Skipping updating flights with transmission type {:d}".format(adsb.transmission_type))
 
         # Update only if msg includes coordinates
         if adsb.transmission_type == 3:
@@ -85,4 +90,4 @@ if __name__ == '__main__':
         log.info(flight.__dict__)
 
     duration = time.time() - start
-    print("{} operations in {}sec".format(i, duration))
+    log.debug("{} operations in {}sec".format(i, duration))
