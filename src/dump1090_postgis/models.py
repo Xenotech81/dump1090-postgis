@@ -25,8 +25,9 @@ class Flight(object):
 
     def update(self, adsb: adsb_parser.AdsbMessage):
         """
-        Updates the instance attributes with values from an ADSb message object.
+        Updates the instance attributes with values from an ADSb message object and returns.
         :param adsb: Instance of AdsbMessage
+        :returns Updated version of self
         """
         self._transmission_type_count[adsb.transmission_type] += 1
 
@@ -39,6 +40,8 @@ class Flight(object):
         # Update only if msg includes coordinates
         self.__flight_track_positions.append(self.position)
         self.__flight_track_timestamps.append(self.last_seen)
+
+        return self
 
 
 if __name__ == '__main__':
