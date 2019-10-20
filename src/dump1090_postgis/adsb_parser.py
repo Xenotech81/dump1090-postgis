@@ -19,7 +19,6 @@ HOST = '83.155.90.184'
 # Standard Dump1090 port streaming in Base Station format
 PORT = 30003
 
-logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
@@ -196,13 +195,13 @@ class AdsbMessage(object):
             log.error("Could not identify all fields in '{}'. Skipping message.".format(msg))
             return {}
 
-        log.info("Casting to data types...")
+        log.debug("Casting to data types...")
         for field, fnc in self.NORMALIZE_MSG.items():
             if field in msg_dict:
                 try:
                     msg_dict[field] = fnc(msg_dict[field])
                 except ValueError as err:
-                    log.warning("Could not cast {}: {}".format(field, str(err)))
+                    log.debug("Could not cast {}: {}".format(field, str(err)))
                     msg_dict[field] = None
             else:
                 log.warning("Field {} not found".format(field))
@@ -228,6 +227,7 @@ class AdsbMessage(object):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
 
     #message_source = Dump1090Socket()
     message_source = FileSource('messages.txt')
