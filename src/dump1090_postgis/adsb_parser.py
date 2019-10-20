@@ -9,10 +9,13 @@ https://github.com/bzamecnik/dump1090-archive
 https://github.com/slintak/adsb2influx
 """
 import abc
+import datetime
 import logging
 import re
 import socket
 import string
+from dateutil.parser.isoparser import isoparser
+
 
 # The host on which dump1090 is running
 HOST = '83.155.90.184'
@@ -21,6 +24,7 @@ PORT = 30003
 
 log = logging.getLogger(__name__)
 
+_date_time_parser = isoparser(sep=',')
 
 class MessageStream(abc.ABC):
     """
@@ -128,10 +132,8 @@ class AdsbMessage(object):
                  r'(?P<aircraft>\d+),' \
                  r'(?P<hexident>[0-9A-F]+),' \
                  r'(?P<flight>\d+),' \
-                 r'(?P<gen_date>[0-9/]+),' \
-                 r'(?P<gen_time>[0-9:\.]+),' \
-                 r'(?P<log_date>[0-9/]+),' \
-                 r'(?P<log_time>[0-9:\.]+),' \
+                 r'(?P<gen_date_time>[0-9/]+,[0-9:\.]+),' \
+                 r'(?P<log_date_time>[0-9/]+,[0-9:\.]+),' \
                  r'(?P<callsign>[\w\s]*),' \
                  r'(?P<altitude>\d*),' \
                  r'(?P<speed>\d*),' \
@@ -150,6 +152,8 @@ class AdsbMessage(object):
         'session': (lambda v: int(v)),
         'aircraft': (lambda v: int(v)),
         'flight': (lambda v: int(v)),
+        'gen_date_time': (lambda v: _date_time_parser.isoparse(v.replace('/', '-'))),
+        'log_date_time': (lambda v: _date_time_parser.isoparse(v.replace('/', '-'))),
         'callsign': (lambda v: v.strip() if v != '' else None),
         'altitude': (lambda v: int(v)),
         'speed': (lambda v: int(v)),
@@ -227,7 +231,7 @@ class AdsbMessage(object):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     #message_source = Dump1090Socket()
     message_source = FileSource('messages.txt')
