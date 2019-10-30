@@ -47,7 +47,7 @@ class CurrentFlights(object):
 
         if self._adsb_filter is not None:
             if not self._adsb_filter.filter(adsb_message):
-                log.warning("Message filtered out by ADSb filter.")
+                log.debug("Message filtered out by ADSb filter.")
                 return
 
         try:

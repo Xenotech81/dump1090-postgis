@@ -232,9 +232,7 @@ class AdsbMessage(object):
 
 class AdsbMessageFilter(object):
 
-    def __int__(self, below: int = 100000, above: int = 0, radius: int = 500000, faster: int = 0, slower: int = 3000,
-                rising: bool = None, descending: bool = None, onground: bool = None):
-        # def __init__(self, below=100000, above=0):
+    def __init__(self, below: int = 100000, above=0, radius: int = 500000, faster: int = 0, slower: int = 30000, rising: bool = None, descending: bool = None, onground: bool = None):
         """
         Filter which returns True if all conditions are fulfilled, else False.
 
@@ -263,7 +261,6 @@ class AdsbMessageFilter(object):
             if self.below > adsb.altitude > self.above:
                 return True
             else:
-                log.warning("Altitude test failed.")
                 return False
         else:
             return True
@@ -286,5 +283,4 @@ if __name__ == "__main__":
 
     for msg in AdsbMessage(message_source):
         log.info(msg.__dict__)
-
         print(AdsbMessageFilter(below=30000).filter(msg))
