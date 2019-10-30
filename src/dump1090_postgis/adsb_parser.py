@@ -16,15 +16,15 @@ import socket
 import string
 from dateutil.parser.isoparser import isoparser
 
-
 # The host on which dump1090 is running
-HOST = '83.155.90.184'
+HOST = '192.168.0.23'
 # Standard Dump1090 port streaming in Base Station format
 PORT = 30003
 
 log = logging.getLogger(__name__)
 
 _date_time_parser = isoparser(sep=',')
+
 
 class MessageStream(abc.ABC):
     """
@@ -230,11 +230,61 @@ class AdsbMessage(object):
             yield self
 
 
+class AdsbMessageFilter(object):
+
+    def __int__(self, below: int = 100000, above: int = 0, radius: int = 500000, faster: int = 0, slower: int = 3000,
+                rising: bool = None, descending: bool = None, onground: bool = None):
+        # def __init__(self, below=100000, above=0):
+        """
+        Filter which returns True if all conditions are fulfilled, else False.
+
+        Defaults are chosen such that filter returns True by default. Currently, only altitude test is implemented.
+        todo Implement all filter tests.
+
+        :param below: Altitude threshold in feet AGL [ft]
+        :param above: Altitude threshold in feet AGL [ft]
+        :param radius: Radius about a reference point [m]
+        :param faster:  Speed threshold [knots]
+        :param slower: Speed threshold [knots]
+        :param rising:  True / False flag
+        :param descending:  True / False flag
+        :param onground: True / False flag
+        :return:
+        """
+
+        self.below = below
+        self.above = above
+
+    def __test_altitude(self, adsb) -> bool:
+        if self.below <= self.above:
+            raise ValueError("'below' altitude condition must be higher than 'above' altitude")
+
+        if adsb.altitude is not None:
+            if self.below > adsb.altitude > self.above:
+                return True
+            else:
+                log.warning("Altitude test failed.")
+                return False
+        else:
+            return True
+
+    def filter(self, adsb: AdsbMessage):
+        """
+        Returns True if all sub-tests return True, else False.
+        :param adsb:
+        :return:
+        """
+        assert isinstance(adsb, AdsbMessage)
+        return all((self.__test_altitude(adsb),))
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
-    #message_source = Dump1090Socket()
+    # message_source = Dump1090Socket()
     message_source = FileSource('messages.txt')
 
     for msg in AdsbMessage(message_source):
         log.info(msg.__dict__)
+
+        print(AdsbMessageFilter(below=30000).filter(msg))

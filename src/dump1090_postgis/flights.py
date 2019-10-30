@@ -11,15 +11,13 @@ class CurrentFlights(object):
     """
     Pool of currently observed flights.
 
-    todo \
-    - Filter functions (<10000 feet, distance, ...)
-    - forward message to all flights (better: subscriber!)
-    - Poll last_seen of flights and move old ones to PastFlights
+    todo: Poll last_seen of flights and move old ones to PastFlights
     """
 
-    def __init__(self):
+    def __init__(self, adsb_filter: adsb_parser.AdsbMessageFilter = None):
         # Key-value pairs of fight hexident and models.Flight instances
         self._flights = {}
+        self._adsb_filter = adsb_filter
 
     def __getitem__(self, hexident: string) -> Flight:
         try:
@@ -43,8 +41,15 @@ class CurrentFlights(object):
         """
         Updates the flight pool from a ADSb message object.
         :param adsb_message: Intance of adsb_parser.AdsbMessage
+        :param adsb_filter: Configured AdsbMessageFilter instance
         :return: None
         """
+
+        if self._adsb_filter is not None:
+            if not self._adsb_filter.filter(adsb_message):
+                log.warning("Message filtered out by ADSb filter.")
+                return
+
         try:
             self._flights[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
@@ -64,11 +69,14 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     # Pool of currently visible flights
-    current_flights = CurrentFlights()
+    current_flights = CurrentFlights(adsb_filter=adsb_parser.AdsbMessageFilter(below=10000, above=0))
 
-    message_source = adsb_parser.FileSource('messages.txt')
+    #message_source = adsb_parser.Dump1090Socket()
+    message_source = adsb_parser.FileSource('messages_long.txt')
+
+
     for msg in adsb_parser.AdsbMessage(message_source):
         current_flights.update(msg)
 
     log.info(current_flights)
-    log.info(list(current_flights['400BE5'].flight_track()))
+    log.info(list(current_flights['396444'].flight_track()))
