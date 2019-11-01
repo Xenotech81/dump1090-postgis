@@ -1,15 +1,17 @@
+import datetime
+import logging
+import string
+import time
+
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, DATETIME
 from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
 from geoalchemy2.shape import from_shape
 from shapely.geometry import LineString
-import datetime
-import logging
-import string
-import time
 
 import adsb_parser
+
 
 log = logging.getLogger(__name__)
 
@@ -110,7 +112,6 @@ class Flight(Base):
 
         if not self.first_seen:
             self.first_seen = adsb.gen_date_time
-            print(datetime.datetime.timestamp(self.first_seen))
 
         self.last_seen = adsb.gen_date_time
 

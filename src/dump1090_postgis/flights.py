@@ -1,9 +1,11 @@
 import logging
 import string
-from models import Flight
-import adsb_parser
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+import models
+import adsb_parser
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +26,7 @@ class CurrentFlights(object):
         self._flights = {}
         self._adsb_filter = adsb_filter
 
-    def __getitem__(self, hexident: string) -> Flight:
+    def __getitem__(self, hexident: string) -> models.Flight:
         try:
             return self._flights[hexident]
         except KeyError:
@@ -32,7 +34,7 @@ class CurrentFlights(object):
             return None
 
     def __setitem__(self, key, value):
-        assert isinstance(value, Flight)
+        assert isinstance(value, models.Flight)
         self._flights[key] = value
 
     def __iter__(self):
@@ -60,7 +62,7 @@ class CurrentFlights(object):
             log.debug("Flight {} updated".format(adsb_message.hexident))
         except KeyError:
             log.debug("Adding new flight '{}' to current pool".format(adsb_message.hexident))
-            self._flights[adsb_message.hexident] = Flight(adsb_message.hexident).update(adsb_message)
+            self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
 
         session.merge(self._flights[adsb_message.hexident])
 
@@ -80,10 +82,10 @@ class CurrentFlights(object):
 
 
 def create_flight_table():
-    Flight.__table__.create(engine)
+    models.Flight.__table__.create(engine)
 
 def delete_flight_table():
-    Flight.__table__.drop(engine)
+    models.Flight.__table__.drop(engine)
 
 
 if __name__ == '__main__':
