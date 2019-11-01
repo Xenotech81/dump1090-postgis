@@ -53,6 +53,10 @@ class Flight(Base):
         self.__times = []
         self._transmission_type_count = dict.fromkeys(range(1, 9, 1), 0)
 
+    def __str__(self):
+        return "Flight {hexident}: last seen: {last_seen}".format(**self.__dict__)
+
+
     def _add_position(self, x: float, y: float, z: float, t: datetime.datetime):
         """
         Adds x,y coordinates and timestamp of a single filight path position.
