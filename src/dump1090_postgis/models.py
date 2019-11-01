@@ -60,10 +60,10 @@ class Flight(Base):
     def _add_position(self, x: float, y: float, z: float, t: datetime.datetime):
         """
         Adds x,y coordinates and timestamp of a single filight path position.
-        :param x: x coordinate
-        :param y: y coordinate
+        :param x: x coordinate (longitude)
+        :param y: y coordinate (latitude)
         :param z: height above ground [m]
-        :param t: timestamp
+        :param t: timestamp (todo: DateTime is still passed, change this)
         :return:
         """
         self.__groundtrack.append([x, y])
@@ -126,8 +126,9 @@ class Flight(Base):
             log.debug("Skipping updating flights with transmission type {:d}".format(adsb.transmission_type))
 
         # Update only if msg includes coordinates
+        # ATTENTION: x: longitude (easting), y: latitude (northing)
         if adsb.transmission_type == 3:
-            self._add_position(adsb.latitude, adsb.longitude, adsb.altitude, adsb.gen_date_time)
+            self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
 
         return self
 
