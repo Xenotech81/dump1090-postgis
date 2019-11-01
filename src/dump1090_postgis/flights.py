@@ -94,7 +94,7 @@ if __name__ == '__main__':
     current_flights = CurrentFlights(adsb_filter=adsb_parser.AdsbMessageFilter(below=10000, above=0))
 
     #message_source = adsb_parser.Dump1090Socket()
-    message_source = adsb_parser.FileSource('messages_long.txt')
+    message_source = adsb_parser.FileSource('adsb_message_stream.txt')
 
     for msg in adsb_parser.AdsbMessage(message_source):
         current_flights.update(msg)

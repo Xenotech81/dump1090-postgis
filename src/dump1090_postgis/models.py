@@ -130,7 +130,7 @@ class Flight(Base):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
-    message_source = adsb_parser.FileSource('messages_long.txt')
+    message_source = adsb_parser.FileSource('adsb_message_stream.txt')
     flight = Flight('405D0F')
 
     i = 0
