@@ -40,7 +40,7 @@ class CurrentFlights(object):
             yield flight
 
     def __len__(self):
-        return  len(self._flights)
+        return len(self._flights)
 
     def update(self, adsb_message: adsb_parser.AdsbMessage):
         """
@@ -61,6 +61,16 @@ class CurrentFlights(object):
         except KeyError:
             log.debug("Adding new flight '{}' to current pool".format(adsb_message.hexident))
             self._flights[adsb_message.hexident] = Flight(adsb_message.hexident).update(adsb_message)
+
+        session.merge(self._flights[adsb_message.hexident])
+
+    def _commit_flights(self):
+        """
+        Commits all currently observed flights to DB.
+        :return:
+        """
+        session.commit()
+
 
     def __repr__(self):
         return "Current flight pool contains {} fights: \n{}".format(len(self), '\n'.join(self.hexidents()))
