@@ -1,11 +1,16 @@
 import logging
 import string
-
 from models import Flight
 import adsb_parser
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 log = logging.getLogger(__name__)
 
+engine = create_engine('postgresql://gis:gis@localhost/gis', echo=True)
+Session = sessionmaker(bind=engine)
+
+session = Session()
 
 class CurrentFlights(object):
     """
@@ -64,6 +69,13 @@ class CurrentFlights(object):
         return self._flights.keys()
 
 
+def create_flight_table():
+    Flight.__table__.create(engine)
+
+def delete_flight_table():
+    Flight.__table__.drop(engine)
+
+
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
@@ -74,9 +86,8 @@ if __name__ == '__main__':
     #message_source = adsb_parser.Dump1090Socket()
     message_source = adsb_parser.FileSource('messages_long.txt')
 
-
     for msg in adsb_parser.AdsbMessage(message_source):
         current_flights.update(msg)
 
     log.info(current_flights)
-    log.info(list(current_flights['396444'].flight_track()))
+    log.info(list(current_flights['396444'].flight_path()))
