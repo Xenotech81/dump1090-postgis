@@ -4,7 +4,7 @@ import string
 import time
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DATETIME
+from sqlalchemy import Column, Integer, String, DATETIME, BOOLEAN
 from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
 from geoalchemy2.shape import from_shape
@@ -35,19 +35,19 @@ def feet2m(ft):
 class Flight(Base):
     __tablename__ = 'flights'
     id = Column(Integer, primary_key=True)
-    hexident = Column(String, nullable=False)
+    hexident = Column(String(6), nullable=False)
+    callsign = Column(String(7))
+    # gen_date_time timestamp of the first ADSb message of this hexiden processed
     first_seen = Column(DATETIME, nullable=False)
+    # gen_date_time timestamp of (any) last ADSb message of this hexident
+    last_seen = Column(DATETIME)
     groundtrack = Geometry('LINESTRING', srid=SRID)
+    onground = Column(BOOLEAN)
 
     def __init__(self, hexident: string):
         self.hexident = hexident
-        # Time stamp of last received message
-        self.last_seen = None
-        # Last position (not necessarily from last message)
-        self.position = None
         self.verticalrate = None
         self.squawk = None
-        self.onground = True
         self.__groundtrack = []
         self.__altitudes = []  # List of altitudes [m]
         self.__times = []
@@ -59,7 +59,7 @@ class Flight(Base):
 
     def _add_position(self, x: float, y: float, z: float, t: datetime.datetime):
         """
-        Adds x,y coordinates and timestamp of a single filight path position.
+        Adds x,y coordinates and timestamp of a single flight path position.
         :param x: x coordinate (longitude)
         :param y: y coordinate (latitude)
         :param z: height above ground [m]
@@ -101,8 +101,10 @@ class Flight(Base):
         :returns Updated version of self
         """
 
-        MSG_FIELDS = {2: ('speed', 'latitude', 'longitude', 'onground'),
-                      3: ('altitude', 'latitude', 'longitude'),
+        # Upon landing MSG type changes from 3 to 2 (no altitude is transmitted after landing)
+        MSG_FIELDS = {1: ('callsign', 'onground'),
+                      2: ('speed', 'latitude', 'longitude', 'onground'),
+                      3: ('altitude', 'latitude', 'longitude', 'onground'),
                       4: ('speed', 'track', 'verticalrate', 'onground'),
                       8: ('onground',)
                       }
@@ -117,8 +119,11 @@ class Flight(Base):
         if not self.first_seen:
             self.first_seen = adsb.gen_date_time
 
+        # Note: last_seen timestamp gets updated from any MSG type, regardless whether the message content will be used
+        # to update the object attributes or not.
         self.last_seen = adsb.gen_date_time
 
+        # Process only message types defined as keys in MSG_FIELDS
         try:
             for field in MSG_FIELDS[adsb.transmission_type]:
                 setattr(self, field, getattr(adsb, field))
