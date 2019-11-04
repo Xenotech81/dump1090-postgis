@@ -253,7 +253,20 @@ class AdsbMessageFilter(object):
         self.below = below
         self.above = above
 
-    def __test_altitude(self, adsb) -> bool:
+        # If set to True, the message will be rejected, if parameter value to be tested is missing.
+        self.strict = True
+
+    def __test_altitude(self, adsb: AdsbMessage) -> bool:
+        """
+        Checks if the reported altitude is within the requested limits.
+
+        Returns True if the flight altitude is within the requested limits, otherwise false.
+        If the ADSb message does not contain an altitude value and the filter is set to 'strict' mode,
+        False is returned, otherwise True.
+
+        :param adsb: ADSb message instance.
+        :return: True/False
+        """
         if self.below <= self.above:
             raise ValueError("'below' altitude condition must be higher than 'above' altitude")
 
@@ -263,11 +276,18 @@ class AdsbMessageFilter(object):
             else:
                 return False
         else:
-            return True
+            if self.strict:
+                return False
+            else:
+                return True
 
     def filter(self, adsb: AdsbMessage):
         """
         Returns True if all sub-tests return True, else False.
+
+        The flag 'strict' determines the behaviour if the message does not contain a parameter
+        which shall be tested. E.g. not all message types transmit the altitude or the position.
+        If set to strict mode, such messages will be rejected by the filter (False will be returned).
         :param adsb:
         :return:
         """
@@ -278,7 +298,6 @@ class AdsbMessageFilter(object):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
-    # message_source = Dump1090Socket()
     message_source = FileSource('messages.txt')
 
     for msg in AdsbMessage(message_source):
