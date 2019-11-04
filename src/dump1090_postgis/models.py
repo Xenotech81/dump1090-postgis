@@ -150,7 +150,7 @@ class Flight(Base):
         if adsb.transmission_type == 3:
             self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
         if adsb.transmission_type == 2:
-            self._add_position(self.GND_ALTITUDE, adsb.latitude, adsb.altitude, adsb.gen_date_time)
+            self._add_position(adsb.longitude, adsb.latitude, self.GND_ALTITUDE, adsb.gen_date_time)
         return self
 
 
