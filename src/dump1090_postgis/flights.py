@@ -48,21 +48,27 @@ class CurrentFlights(object):
 
     def update(self, adsb_message: adsb_parser.AdsbMessage):
         """
-        Updates the flight pool from a ADSb message object.
-        :param adsb_message: Intance of adsb_parser.AdsbMessage
+        Updates the flight pool from a ADSb message object and commits to Postgres.
+
+        If hexident is already known, the according Flight instance will get updated with the message contents and
+        merged into the current SQL session.
+        If hexident is unknown, it will be added to the pool in one of the cases:
+            1. Transmission type is 2: Aircraft is on ground, only lat/lon is transmitted. No altitude filter
+            applicable.
+            2. Transmission type is 3 (=altitude is included in the message) AND altitude filter returns True
+        After adding the new hexident to the pool, the Flight instance is updated and added to the SQL session.
+        Finally, the session is commited to DB.
+
+        :param adsb_message: Instance of adsb_parser.AdsbMessage
         :param adsb_filter: Configured AdsbMessageFilter instance
         :return: None
         """
 
-        if self._adsb_filter is not None:
-            if not self._adsb_filter.filter(adsb_message):
-                log.debug("Message filtered out by ADSb filter.")
-                return
-
-        try:
+        if adsb_message.hexident in self._flights:
             self._flights[adsb_message.hexident].update(adsb_message)
-            log.debug("Flight {} updated".format(adsb_message.hexident))
-        except KeyError:
+            log.info("Flight {} updated".format(adsb_message.hexident))
+            session.merge(self._flights[adsb_message.hexident])
+        elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.filter(adsb_message)):
             log.info("Adding new flight '{}' to current pool".format(adsb_message.hexident))
             self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
             session.add(self._flights[adsb_message.hexident])
@@ -102,7 +108,7 @@ class CurrentFlights(object):
                 for position in self[hex].flight_path():
                     #f.write(','.join(map(str, position[1:4]))+'\n')
                     f.write("{:.5f},{:.5f},{:.1f} ".format(*position[1:4]))
-                print("Flight path {} written to {}".format(hex, f.name))
+                log.info("Flight path {} written to {}".format(hex, f.name))
 
 
 def create_flight_table():
@@ -115,7 +121,7 @@ def delete_flight_table():
 if __name__ == '__main__':
     import time
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARNING)
 
     delete_flight_table()
     create_flight_table()

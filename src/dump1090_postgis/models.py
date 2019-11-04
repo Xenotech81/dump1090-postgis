@@ -140,8 +140,10 @@ class Flight(Base):
 
         # Process only message types defined as keys in MSG_FIELDS
         try:
+            log.debug("Updating flight {} with MSG type: {}".format(self.hexident, adsb.transmission_type))
             for field in MSG_FIELDS[adsb.transmission_type]:
                 setattr(self, field, getattr(adsb, field))
+                log.debug("Updating field: {}={}".format(field, getattr(adsb, field)))
         except KeyError:
             log.error("Skipping updating flights with transmission type {:d}".format(adsb.transmission_type))
 
