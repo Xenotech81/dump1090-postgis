@@ -1,4 +1,5 @@
 import logging
+import os
 import string
 
 from sqlalchemy import create_engine
@@ -81,6 +82,27 @@ class CurrentFlights(object):
     def hexidents(self):
         return self._flights.keys()
 
+    def flight_path_to_csv(self, hexidents, folder=None):
+        """
+        Saves the 3D flight paths as CSV tables, formatted for GE's kml files.
+
+        :param hexidents: List of strings of hexidents
+        :param folder: Optional directory to save the files in
+        """
+
+        if folder is None:
+            folder = os.getcwd()
+        else:
+            assert os.path.isdir(folder)
+
+        # Saving flight path to file
+        for hex in hexidents:
+            with open(os.path.join(folder, "flight_path_{}.dat".format(hex)), 'w') as f:
+                for position in self[hex].flight_path():
+                    #f.write(','.join(map(str, position[1:4]))+'\n')
+                    f.write("{:.5f},{:.5f},{:.1f} ".format(*position[1:4]))
+                print("Flight path {} written to {}".format(hex, f.name))
+
 
 def create_flight_table():
     models.Flight.__table__.create(engine)
@@ -97,7 +119,7 @@ if __name__ == '__main__':
     # Pool of currently visible flights
     current_flights = CurrentFlights(adsb_filter=adsb_parser.AdsbMessageFilter(below=10000, above=0))
 
-    #message_source = adsb_parser.Dump1090Socket()
+    #message_source = adsb_parser.FileSource('flights_01.11.2019.txt')
     message_source = adsb_parser.FileSource('adsb_message_stream.txt')
 
     i = 0
@@ -109,4 +131,8 @@ if __name__ == '__main__':
     log.info("{} messages processed in {}sec".format(i, duration))
 
     log.info(current_flights)
-    log.info(list(current_flights['396444'].flight_path()))
+
+    # Save flight paths to disc as CSV for Google Earth
+    #FLIGHTS = ['440065', '4CACA9', '440171', '396679', '3DD665', '39B16A']
+    FLIGHTS = ['4B1A34']
+    current_flights.flight_path_to_csv(FLIGHTS)
