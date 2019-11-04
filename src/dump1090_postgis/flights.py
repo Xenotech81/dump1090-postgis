@@ -4,12 +4,13 @@ import string
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from config import DB_URL
 import models
 import adsb_parser
 
 log = logging.getLogger(__name__)
 
-engine = create_engine('postgresql://gis:gis@localhost/gis', echo=True)
+engine = create_engine(DB_URL, echo=True)
 Session = sessionmaker(bind=engine)
 
 session = Session()
@@ -64,7 +65,7 @@ class CurrentFlights(object):
             log.debug("Adding new flight '{}' to current pool".format(adsb_message.hexident))
             self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
 
-        session.merge(self._flights[adsb_message.hexident])
+        #session.merge(self._flights[adsb_message.hexident])
 
     def _commit_flights(self):
         """
@@ -89,6 +90,7 @@ def delete_flight_table():
 
 
 if __name__ == '__main__':
+    import time
 
     logging.basicConfig(level=logging.INFO)
 
@@ -98,8 +100,13 @@ if __name__ == '__main__':
     #message_source = adsb_parser.Dump1090Socket()
     message_source = adsb_parser.FileSource('adsb_message_stream.txt')
 
+    i = 0
+    start = time.time()
     for msg in adsb_parser.AdsbMessage(message_source):
         current_flights.update(msg)
+        i += 1
+    duration = time.time() - start
+    log.info("{} messages processed in {}sec".format(i, duration))
 
     log.info(current_flights)
     log.info(list(current_flights['396444'].flight_path()))
