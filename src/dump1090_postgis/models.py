@@ -24,11 +24,6 @@ ALT_UNIT = 'm'
 
 
 def feet2m(ft):
-    """
-    Computes and returns length in m from feet.
-    :param ft: Length in feet
-    :return: Length in meter
-    """
     return 0.3048 * ft
 
 
@@ -121,6 +116,7 @@ class Flight(Base):
                       2: ('speed', 'latitude', 'longitude', 'onground'),
                       3: ('altitude', 'latitude', 'longitude', 'onground'),
                       4: ('speed', 'track', 'verticalrate', 'onground'),
+                      5: ('altitude', 'verticalrate'),
                       8: ('onground',)
                       }
 
@@ -145,7 +141,7 @@ class Flight(Base):
                 setattr(self, field, getattr(adsb, field))
                 log.debug("Updating field: {}={}".format(field, getattr(adsb, field)))
         except KeyError:
-            log.error("Skipping updating flights with transmission type {:d}".format(adsb.transmission_type))
+            log.debug("Skipping updating flight with transmission type {:d}: {}".format(adsb.transmission_type, adsb))
 
         # Update only if msg includes coordinates
         # ATTENTION: x: longitude (easting), y: latitude (northing)
