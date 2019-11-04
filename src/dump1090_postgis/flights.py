@@ -40,7 +40,7 @@ class CurrentFlights(object):
         self._flights[key] = value
 
     def __iter__(self):
-        for flight in self._flights:
+        for flight in self._flights.values():
             yield flight
 
     def __len__(self):
