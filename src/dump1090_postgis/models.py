@@ -1,4 +1,5 @@
 import datetime
+import enum
 import logging
 import string
 import time
@@ -11,7 +12,6 @@ from geoalchemy2.shape import from_shape
 from shapely.geometry import LineString
 
 import adsb_parser
-
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +32,15 @@ def feet2m(ft):
     return 0.3048 * ft
 
 
+class Intention(enum.Enum):
+    """
+    Enumerator for flight intention: departure, arrival or passing by (flyby).
+    """
+    flyby = 'flyby'
+    departure = 'departure'
+    arrival = 'arrival'
+
+
 class Flight(Base):
     __tablename__ = 'flights'
     id = Column(Integer, primary_key=True)
@@ -43,6 +52,12 @@ class Flight(Base):
     last_seen = Column(DATETIME)
     groundtrack = Geometry('LINESTRING', srid=SRID)
     onground = Column(BOOLEAN)
+    # arrival, departure, flyby
+    intention = Column(String(9))
+
+    # Altitude [m] of airport (will be used to set altitude for MSG type 2)
+    # Note: NTE is at 90ft ASL
+    GND_ALTITUDE = 0
 
     def __init__(self, hexident: string):
         self.hexident = hexident
@@ -55,7 +70,6 @@ class Flight(Base):
 
     def __str__(self):
         return "Flight {hexident}: last seen: {last_seen}".format(**self.__dict__)
-
 
     def _add_position(self, x: float, y: float, z: float, t: datetime.datetime):
         """
@@ -134,7 +148,8 @@ class Flight(Base):
         # ATTENTION: x: longitude (easting), y: latitude (northing)
         if adsb.transmission_type == 3:
             self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
-
+        if adsb.transmission_type == 2:
+            self._add_position(self.GND_ALTITUDE, adsb.latitude, adsb.altitude, adsb.gen_date_time)
         return self
 
 
@@ -154,4 +169,3 @@ if __name__ == '__main__':
     log.info("{} operations in {}sec".format(i, duration))
 
     log.info(list(flight.flight_path()))
-
