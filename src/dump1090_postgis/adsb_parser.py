@@ -177,6 +177,9 @@ class AdsbMessage(object):
         self.__message_stream = message_stream
         self.__re_msg = re.compile(self.REGEXP_MSG)
 
+    def __str__(self):
+        return str({k: self.__dict__[k] for k in self.NORMALIZE_MSG.keys()})
+
     def __normalize_msg(self, msg: string):
         """
         Identifies and casts field values of message string to data types and returns as dict.
@@ -232,7 +235,8 @@ class AdsbMessage(object):
 
 class AdsbMessageFilter(object):
 
-    def __init__(self, below: int = 100000, above=0, radius: int = 500000, faster: int = 0, slower: int = 30000, rising: bool = None, descending: bool = None, onground: bool = None):
+    def __init__(self, below: int = 100000, above=-1000, radius: int = 500000, faster: int = 0, slower: int = 30000,
+                 rising: bool = None, descending: bool = None, onground: bool = None):
         """
         Filter which returns True if all conditions are fulfilled, else False.
 
@@ -256,7 +260,7 @@ class AdsbMessageFilter(object):
         # If set to True, the message will be rejected, if parameter value to be tested is missing.
         self.strict = True
 
-    def __test_altitude(self, adsb: AdsbMessage) -> bool:
+    def altitude(self, adsb: AdsbMessage) -> bool:
         """
         Checks if the reported altitude is within the requested limits.
 
@@ -292,7 +296,7 @@ class AdsbMessageFilter(object):
         :return:
         """
         assert isinstance(adsb, AdsbMessage)
-        return all((self.__test_altitude(adsb),))
+        return all((self.altitude(adsb),))
 
 
 if __name__ == "__main__":

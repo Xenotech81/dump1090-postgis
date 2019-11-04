@@ -68,7 +68,8 @@ class CurrentFlights(object):
             self._flights[adsb_message.hexident].update(adsb_message)
             log.info("Flight {} updated".format(adsb_message.hexident))
             session.merge(self._flights[adsb_message.hexident])
-        elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.filter(adsb_message)):
+        elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
+                adsb_message)):
             log.info("Adding new flight '{}' to current pool".format(adsb_message.hexident))
             self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
             session.add(self._flights[adsb_message.hexident])
@@ -127,10 +128,10 @@ if __name__ == '__main__':
     create_flight_table()
 
     # Pool of currently visible flights
-    current_flights = CurrentFlights(adsb_filter=adsb_parser.AdsbMessageFilter(below=10000, above=0))
+    current_flights = CurrentFlights(adsb_filter=adsb_parser.AdsbMessageFilter(below=10000))
 
-    #message_source = adsb_parser.FileSource('flights_01.11.2019.txt')
-    message_source = adsb_parser.FileSource('adsb_message_hexident_40757F.txt')
+    message_source = adsb_parser.FileSource('flights_01.11.2019.txt')
+    #message_source = adsb_parser.FileSource('adsb_message_stream.txt')
 
     i = 0
     start = time.time()
