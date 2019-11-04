@@ -11,7 +11,7 @@ import adsb_parser
 
 log = logging.getLogger(__name__)
 
-engine = create_engine(DB_URL, echo=True)
+engine = create_engine(DB_URL, echo=False)
 Session = sessionmaker(bind=engine)
 
 session = Session()
@@ -63,10 +63,11 @@ class CurrentFlights(object):
             self._flights[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
         except KeyError:
-            log.debug("Adding new flight '{}' to current pool".format(adsb_message.hexident))
+            log.info("Adding new flight '{}' to current pool".format(adsb_message.hexident))
             self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
+            session.add(self._flights[adsb_message.hexident])
 
-        #session.merge(self._flights[adsb_message.hexident])
+        self._commit_flights()
 
     def _commit_flights(self):
         """
@@ -116,11 +117,14 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
 
+    delete_flight_table()
+    create_flight_table()
+
     # Pool of currently visible flights
     current_flights = CurrentFlights(adsb_filter=adsb_parser.AdsbMessageFilter(below=10000, above=0))
 
     #message_source = adsb_parser.FileSource('flights_01.11.2019.txt')
-    message_source = adsb_parser.FileSource('adsb_message_stream.txt')
+    message_source = adsb_parser.FileSource('adsb_message_hexident_40757F.txt')
 
     i = 0
     start = time.time()
@@ -134,5 +138,5 @@ if __name__ == '__main__':
 
     # Save flight paths to disc as CSV for Google Earth
     #FLIGHTS = ['440065', '4CACA9', '440171', '396679', '3DD665', '39B16A']
-    FLIGHTS = ['4B1A34']
-    current_flights.flight_path_to_csv(FLIGHTS)
+    #FLIGHTS = ['4B1A34']
+    #current_flights.flight_path_to_csv(FLIGHTS)

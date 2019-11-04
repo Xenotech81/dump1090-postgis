@@ -5,7 +5,7 @@ import string
 import time
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DATETIME, BOOLEAN
+from sqlalchemy import Column, Integer, String, TIMESTAMP, BOOLEAN
 from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
 from geoalchemy2.shape import from_shape
@@ -47,9 +47,9 @@ class Flight(Base):
     hexident = Column(String(6), nullable=False)
     callsign = Column(String(7))
     # gen_date_time timestamp of the first ADSb message of this hexiden processed
-    first_seen = Column(DATETIME, nullable=False)
+    first_seen = Column(TIMESTAMP, nullable=False)
     # gen_date_time timestamp of (any) last ADSb message of this hexident
-    last_seen = Column(DATETIME)
+    last_seen = Column(TIMESTAMP)
     groundtrack = Geometry('LINESTRING', srid=SRID)
     onground = Column(BOOLEAN)
     # arrival, departure, flyby
@@ -103,6 +103,7 @@ class Flight(Base):
         Updates the instance attributes with values from an ADSb message object and returns.
 
         MSG types and contained info:
+        - 1: callsign & onground
         - 2: speed & latitude & longitude & onground
         - 3: altitude & latitude & longitude
         - 4: speed & track & verticalrate & onground
@@ -124,7 +125,7 @@ class Flight(Base):
                       }
 
         if adsb.hexident != self.hexident:
-            log.debug(
+            log.error(
                 "Trying to update flight '{}' with ADSb message of flight '{}'".format(self.hexident, adsb.hexident))
             return self
 
@@ -142,7 +143,7 @@ class Flight(Base):
             for field in MSG_FIELDS[adsb.transmission_type]:
                 setattr(self, field, getattr(adsb, field))
         except KeyError:
-            log.debug("Skipping updating flights with transmission type {:d}".format(adsb.transmission_type))
+            log.error("Skipping updating flights with transmission type {:d}".format(adsb.transmission_type))
 
         # Update only if msg includes coordinates
         # ATTENTION: x: longitude (easting), y: latitude (northing)
