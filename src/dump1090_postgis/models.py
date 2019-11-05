@@ -11,7 +11,7 @@ from geoalchemy2 import Geometry
 from geoalchemy2.shape import from_shape
 from shapely.geometry import LineString
 
-import adsb_parser
+from src.dump1090_postgis import adsb_parser
 
 log = logging.getLogger(__name__)
 

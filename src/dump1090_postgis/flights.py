@@ -7,9 +7,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists  # create_database, drop_database
 from sqlalchemy.exc import DBAPIError  # SQLAlchemyError
 
-from config import DB_URL
-import models
-import adsb_parser
+from src.config import DB_URL
+from src.dump1090_postgis import models
+from src.dump1090_postgis import adsb_parser
 
 log = logging.getLogger(__name__)
 
