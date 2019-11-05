@@ -45,7 +45,7 @@ class Flight(Base):
     first_seen = Column(TIMESTAMP, nullable=False)
     # gen_date_time timestamp of (any) last ADSb message of this hexident
     last_seen = Column(TIMESTAMP)
-    groundtrack = Geometry('LINESTRING', srid=SRID)
+    groundtrack = Column(Geometry('LINESTRING', srid=SRID))
     onground = Column(BOOLEAN)
     # arrival, departure, flyby
     intention = Column(String(9))
