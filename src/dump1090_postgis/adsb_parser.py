@@ -302,8 +302,9 @@ class AdsbMessageFilter(object):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
-    message_source = FileSource('messages.txt')
-
+    message_source = FileSource('../tests/adsb_message_hexident_40757F.txt')
     for msg in AdsbMessage(message_source):
-        log.info(msg.__dict__)
-        print(AdsbMessageFilter(below=30000).filter(msg))
+        log.info(msg)
+        # Altitude filter test:
+        log.debug("Flight altitude is %s and below 10000ft: %s", msg.altitude if msg.altitude is not None else
+        "Unknown", AdsbMessageFilter(below=10000).filter(msg))

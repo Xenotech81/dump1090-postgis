@@ -5,7 +5,7 @@ import string
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists  # create_database, drop_database
-from sqlalchemy.exc import DBAPIError, SQLAlchemyError
+from sqlalchemy.exc import DBAPIError  # SQLAlchemyError
 
 from config import DB_URL
 import models
@@ -109,7 +109,7 @@ class CurrentFlights(object):
         for hex in hexidents:
             with open(os.path.join(folder, "flight_path_{}.dat".format(hex)), 'w') as f:
                 for position in self[hex].flight_path():
-                    #f.write(','.join(map(str, position[1:4]))+'\n')
+                    # f.write(','.join(map(str, position[1:4]))+'\n')
                     f.write("{:.5f},{:.5f},{:.1f} ".format(*position[1:4]))
                 log.info("Flight path {} written to {}".format(hex, f.name))
 
@@ -142,35 +142,5 @@ def delete_flight_table():
         raise RuntimeError("DB {} does not exist".format(DB_URL))
 
 
-# def delete_flight_table():
-#    models.Flight.__table__.drop(engine)
-
-
 if __name__ == '__main__':
-    import time
-
-    logging.basicConfig(level=logging.WARNING)
-
-    delete_flight_table()
-    create_flight_table()
-
-    # Pool of currently visible flights
-    current_flights = CurrentFlights(adsb_filter=adsb_parser.AdsbMessageFilter(below=10000))
-
-    message_source = adsb_parser.FileSource('flights_01.11.2019.txt')
-    #message_source = adsb_parser.FileSource('adsb_message_stream.txt')
-
-    i = 0
-    start = time.time()
-    for msg in adsb_parser.AdsbMessage(message_source):
-        current_flights.update(msg)
-        i += 1
-    duration = time.time() - start
-    log.info("{} messages processed in {}sec".format(i, duration))
-
-    log.info(current_flights)
-
-    # Save flight paths to disc as CSV for Google Earth
-    #FLIGHTS = ['440065', '4CACA9', '440171', '396679', '3DD665', '39B16A']
-    #FLIGHTS = ['4B1A34']
-    #current_flights.flight_path_to_csv(FLIGHTS)
+    pass

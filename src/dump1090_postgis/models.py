@@ -155,7 +155,7 @@ class Flight(Base):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
-    message_source = adsb_parser.FileSource('adsb_message_stream.txt')
+    message_source = adsb_parser.FileSource('../tests/adsb_message_stream.txt')
     flight = Flight('405D0F')
 
     i = 0
@@ -163,8 +163,6 @@ if __name__ == '__main__':
     for msg in adsb_parser.AdsbMessage(message_source):
         flight.update(msg)
         i += 1
-
     duration = time.time() - start
-    log.info("{} operations in {}sec".format(i, duration))
 
-    log.info(list(flight.flight_path()))
+    log.info("{} operations in {}sec".format(i, duration))
