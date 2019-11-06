@@ -143,11 +143,12 @@ class Flight(Base):
         except KeyError:
             log.debug("Skipping updating flight with transmission type {:d}: {}".format(adsb.transmission_type, adsb))
 
-        # Update only if msg includes coordinates
+        # Update flight path geometry only if msg includes coordinates
         # ATTENTION: x: longitude (easting), y: latitude (northing)
         if adsb.transmission_type == 3:
             self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
-        if adsb.transmission_type == 2:
+        # First MSG2 of aircraft at terminal does not contain coordinates, only 'onground'
+        if adsb.transmission_type == 2 and adsb.longitude is not None and adsb.latitude is not None:
             self._add_position(adsb.longitude, adsb.latitude, self.GND_ALTITUDE, adsb.gen_date_time)
         return self
 
