@@ -45,7 +45,8 @@ class Flight(Base):
     first_seen = Column(TIMESTAMP, nullable=False)
     # gen_date_time timestamp of (any) last ADSb message of this hexident
     last_seen = Column(TIMESTAMP)
-    groundtrack = Column(Geometry('LINESTRING', srid=SRID))
+    # https://gis.stackexchange.com/questions/4467/how-to-handle-time-in-gis
+    flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
     onground = Column(BOOLEAN)
     # arrival, departure, flyby
     intention = Column(String(9))
@@ -58,8 +59,7 @@ class Flight(Base):
         self.hexident = hexident
         self.verticalrate = None
         self.squawk = None
-        self.__groundtrack = []
-        self.__altitudes = []  # List of altitudes [m]
+        self.__flightpath = []
         self.__times = []
         self._transmission_type_count = dict.fromkeys(range(1, 9, 1), 0)
 
@@ -75,23 +75,23 @@ class Flight(Base):
         :param t: timestamp (todo: DateTime is still passed, change this)
         :return:
         """
-        self.__groundtrack.append([x, y])
-        self.__altitudes.append(feet2m(z))
+        self.__flightpath.append([x, y, feet2m(z)])
         self.__times.append(t)
 
         # A LineString must consist of at least 2 point to form a line segment
-        if len(self.__groundtrack) <= 1:
+        if len(self.__flightpath) <= 1:
             pass
         else:
-            self.groundtrack = from_shape(LineString(self.__groundtrack), srid=SRID)
+            # Adding 3D LineString instead of 2D slowed down the process by factor 3!
+            self.flightpath = from_shape(LineString(self.__flightpath), srid=SRID)
 
     def flight_path(self):
         """
         Returns a iterator over tuples of timestamp and xyz coordinates.
         :return: Iterator of (time, (x, y, z))
         """
-        return ((t, xyz[0][0], xyz[0][1], xyz[1]) for t, xyz in
-                zip(self.__times, zip(self.__groundtrack, self.__altitudes)))
+        return ((t, xyz[0], xyz[1], xyz[2]) for t, xyz in
+                zip(self.__times, self.__flightpath))
 
     def update(self, adsb: adsb_parser.AdsbMessage):
         """
