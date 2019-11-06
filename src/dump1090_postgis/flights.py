@@ -69,11 +69,11 @@ class CurrentFlights(object):
 
         if adsb_message.hexident in self._flights:
             self._flights[adsb_message.hexident].update(adsb_message)
-            log.info("Flight {} updated".format(adsb_message.hexident))
+            log.debug("Flight {} updated".format(adsb_message.hexident))
             session.merge(self._flights[adsb_message.hexident])
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
                 adsb_message)):
-            log.info("Adding new flight '{}' to current pool".format(adsb_message.hexident))
+            log.info("New flight spotted: {}! Adding to current pool...".format(adsb_message.hexident))
             self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
             session.add(self._flights[adsb_message.hexident])
 
