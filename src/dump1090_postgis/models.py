@@ -85,6 +85,14 @@ class Flight(Base):
             # Adding 3D LineString instead of 2D slowed down the process by factor 3!
             self.flightpath = from_shape(LineString(self.__flightpath), srid=SRID)
 
+    @property
+    def age(self) -> datetime.timedelta:
+        """
+        Computes the age in seconds since last seen.
+        :return: Age in seconds since last seen
+        """
+        return datetime.datetime.utcnow() - self.last_seen
+
     def flight_path(self):
         """
         Returns a iterator over tuples of timestamp and xyz coordinates.
