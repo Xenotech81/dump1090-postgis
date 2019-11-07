@@ -46,6 +46,7 @@ class MessageStream(abc.ABC):
                 yield msg.strip()
             else:
                 log.error("Received wrong message length ({}/22). Skipping message '{}'".format(msg_length, msg))
+                continue
 
         self._on_close()
 
