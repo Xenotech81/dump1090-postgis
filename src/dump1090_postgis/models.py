@@ -154,7 +154,7 @@ class Flight(Base):
         # Update flight path geometry only if msg includes coordinates
         # ATTENTION: x: longitude (easting), y: latitude (northing)
         if adsb.transmission_type == 3:
-            if adsb.longitude is not None and adsb.latitude is not None:
+            if adsb.longitude is not None and adsb.latitude is not None and adsb.altitude is not None:
                 self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
             else:
                 log.warning("Cannot update position as MSG3 did not include lon/lat: {}".format(str(adsb)))
