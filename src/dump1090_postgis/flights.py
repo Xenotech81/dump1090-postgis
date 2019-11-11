@@ -29,11 +29,15 @@ class CurrentFlights(object):
 
     # Maximum age in seconds since last seen of a flight before it gets deleted from the pool
     MAX_AGE = 120
+    # Commit to Postgres every X seconds
+    DB_COMMIT_PERIOD = 1
 
     def __init__(self, adsb_filter: adsb_parser.AdsbMessageFilter = None):
         # Key-value pairs of fight hexident and models.Flight instances
         self._flights = {}
         self._adsb_filter = adsb_filter
+
+        self.__last_session_commit = datetime.datetime.utcnow()
 
     def __getitem__(self, hexident: string) -> models.Flight:
         try:
@@ -76,7 +80,7 @@ class CurrentFlights(object):
             log.debug("Flight {} updated".format(adsb_message.hexident))
             session.merge(self._flights[adsb_message.hexident])
 
-            self._commit_flights()
+            self._commit_flights(period=self.DB_COMMIT_PERIOD)
 
             self.prune()
 
@@ -85,8 +89,8 @@ class CurrentFlights(object):
             log.info("New flight spotted: {}! Adding to current pool...".format(adsb_message.hexident))
             self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
             session.add(self._flights[adsb_message.hexident])
-            self._commit_flights()
 
+            self._commit_flights()
 
     def prune(self):
         """
@@ -100,12 +104,24 @@ class CurrentFlights(object):
             log.info("Removing aged flight {} from current flight pool.".format(f.hexident))
             del self._flights[f.hexident]
 
-    @staticmethod
-    def _commit_flights():
+    def _commit_flights(self, period: int = None):
         """
         Commits all currently observed flights to DB.
+
+        If period==None, the commit is performed immediately.
+        If an integer is provided as a commit period (in seconds), the commit is delayed by this amount relative to
+        the time value saved in the instance attribute __last_session_commit.
         """
-        session.commit()
+        _now = datetime.datetime.utcnow()
+
+        if period is None:
+            session.commit()
+        elif _now > self.__last_session_commit + datetime.timedelta(seconds=self.DB_COMMIT_PERIOD):
+            session.commit()
+        else:
+            return
+
+        self.__last_session_commit = _now
 
     def __repr__(self):
         return "Current flight pool contains {} fights: \n{}".format(len(self), '\n'.join(self.hexidents()))
