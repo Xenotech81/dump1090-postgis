@@ -87,9 +87,10 @@ class CurrentFlights(object):
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
                 adsb_message)):
             log.info("New flight spotted: {}! Adding to current pool...".format(adsb_message.hexident))
-            self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
-            session.add(self._flights[adsb_message.hexident])
+            new_flight = models.Flight(adsb_message.hexident)
+            self._flights[adsb_message.hexident] = new_flight.update(adsb_message)
 
+            session.add(self._flights[adsb_message.hexident])
             self._commit_flights()
 
     def prune(self):
@@ -159,6 +160,7 @@ def create_flight_table():
     if database_exists(DB_URL):
         try:
             models.Flight.__table__.create(engine)
+            models.Position.__table__.create(engine)
         except DBAPIError as err:
             log.warning("Cannot create table: %s", str(err))
     else:
@@ -172,6 +174,7 @@ def delete_flight_table():
     """
     if database_exists(DB_URL):
         try:
+            models.Position.__table__.drop(engine)
             models.Flight.__table__.drop(engine)
         except DBAPIError as err:
             log.warning("Cannot delete table: %s", str(err))

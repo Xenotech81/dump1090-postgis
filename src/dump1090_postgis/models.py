@@ -5,11 +5,12 @@ import string
 import time
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, TIMESTAMP, BOOLEAN
+from sqlalchemy import Column, Integer, Float, String, TIMESTAMP, BOOLEAN, ForeignKey, BigInteger
+from sqlalchemy.orm import relationship, backref
 from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
 from geoalchemy2.shape import from_shape
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
 
 from src.dump1090_postgis import adsb_parser
 
@@ -21,7 +22,9 @@ Base = declarative_base()
 SRID = 4326
 # Unit of the flight altitude to save in the database ['m', 'ft']
 ALT_UNIT = 'm'
-
+# Altitude [m] of airport (will be used to set altitude for MSG type 2)
+# Note: NTE is at 90ft ASL
+GND_ALTITUDE = 0
 
 def feet2m(ft):
     return 0.3048 * ft
@@ -36,6 +39,21 @@ class Intention(enum.Enum):
     arrival = 'arrival'
 
 
+class Position(Base):
+    __tablename__ = 'positions'
+    id = Column(BigInteger, primary_key=True)
+    flight_id = Column(Integer, ForeignKey('flights.id'))
+    time = Column(TIMESTAMP, nullable=False)
+    coordinates = Column(Geometry('POINTZ', srid=SRID, dimension=3))
+    verticalrate = Column(Float)
+    track = Column(Float)
+    onground = Column(BOOLEAN, default=False)
+
+    def __init__(self, timestamp, lon, lat, alt):
+        self.time = timestamp
+        self.coordinates = from_shape(Point(lon, lat, alt), srid=SRID)
+
+
 class Flight(Base):
     __tablename__ = 'flights'
     id = Column(Integer, primary_key=True)
@@ -47,17 +65,15 @@ class Flight(Base):
     last_seen = Column(TIMESTAMP)
     # https://gis.stackexchange.com/questions/4467/how-to-handle-time-in-gis
     flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
-    onground = Column(BOOLEAN)
     # arrival, departure, flyby
     intention = Column(String(9))
+    landed = Column(BOOLEAN, default=False)
+    takeoff = Column(BOOLEAN, default=False)
 
-    # Altitude [m] of airport (will be used to set altitude for MSG type 2)
-    # Note: NTE is at 90ft ASL
-    GND_ALTITUDE = 0
+    positions = relationship('Position', backref=backref('flight', lazy=True))
 
     def __init__(self, hexident: string):
         self.hexident = hexident
-        self.verticalrate = None
         self.squawk = None
         self.__flightpath = []
         self.__times = []
@@ -77,6 +93,8 @@ class Flight(Base):
         """
         self.__flightpath.append([x, y, feet2m(z)])
         self.__times.append(t)
+
+        self.positions.append(Position(t, x, y, feet2m(z)))
 
         # A LineString must consist of at least 2 point to form a line segment
         if len(self.__flightpath) <= 1:
@@ -161,7 +179,7 @@ class Flight(Base):
         # First MSG2 of aircraft at terminal does not contain coordinates, only 'onground'
         # Also, the altitude is not included in MSG2, and is being set here to GND_ALTITUDE (0m AGL)
         elif adsb.transmission_type == 2 and adsb.longitude is not None and adsb.latitude is not None:
-            self._add_position(adsb.longitude, adsb.latitude, self.GND_ALTITUDE, adsb.gen_date_time)
+            self._add_position(adsb.longitude, adsb.latitude, GND_ALTITUDE, adsb.gen_date_time)
 
         return self
 
