@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import string
@@ -25,6 +26,9 @@ class CurrentFlights(object):
 
     todo: Poll last_seen of flights and move old ones to PastFlights
     """
+
+    # Maximum age in seconds since last seen of a flight before it gets deleted from the pool
+    MAX_AGE = 120
 
     def __init__(self, adsb_filter: adsb_parser.AdsbMessageFilter = None):
         # Key-value pairs of fight hexident and models.Flight instances
@@ -71,18 +75,35 @@ class CurrentFlights(object):
             self._flights[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
             session.merge(self._flights[adsb_message.hexident])
+
+            self._commit_flights()
+
+            self.prune()
+
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
                 adsb_message)):
             log.info("New flight spotted: {}! Adding to current pool...".format(adsb_message.hexident))
             self._flights[adsb_message.hexident] = models.Flight(adsb_message.hexident).update(adsb_message)
             session.add(self._flights[adsb_message.hexident])
+            self._commit_flights()
 
-        self._commit_flights()
 
-    def _commit_flights(self):
+    def prune(self):
+        """
+        Removes all flights from the pool which are older than MAX_AGE.
+        :return:
+        :rtype:
+        """
+        _aged__flights = list(filter(lambda f: f.age > datetime.timedelta(seconds=self.MAX_AGE),
+                                     self._flights.values()))
+        for f in _aged__flights:
+            log.info("Removing aged flight {} from current flight pool.".format(f.hexident))
+            del self._flights[f.hexident]
+
+    @staticmethod
+    def _commit_flights():
         """
         Commits all currently observed flights to DB.
-        :return:
         """
         session.commit()
 
