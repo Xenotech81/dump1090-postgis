@@ -5,11 +5,11 @@ import string
 import time
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Float, String, TIMESTAMP, BOOLEAN, ForeignKey, BigInteger
+from sqlalchemy import Column, Integer, Float, String, TIMESTAMP, BOOLEAN, ForeignKey, BigInteger, Enum
 from sqlalchemy.orm import relationship, backref
 from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
-from geoalchemy2.shape import from_shape
+from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import LineString, Point
 
 from src.dump1090_postgis import adsb_parser
@@ -22,21 +22,24 @@ Base = declarative_base()
 SRID = 4326
 # Unit of the flight altitude to save in the database ['m', 'ft']
 ALT_UNIT = 'm'
-# Altitude [m] of airport (will be used to set altitude for MSG type 2)
+# Altitude [m] AGL for 'onground' flight condition (will be used to set altitude for MSG type 2)
 # Note: NTE is at 90ft ASL
 GND_ALTITUDE = 0
 
+
 def feet2m(ft):
+    """Transforms from feet (ADSb altitude unit) to meter."""
     return 0.3048 * ft
 
 
 class Intention(enum.Enum):
     """
-    Enumerator for flight intention: departure, arrival or passing by (flyby).
+    Enumerator for flight intention: departure, arrival or passing by (enroute).
     """
-    flyby = 'flyby'
+    enroute = 'enroute'
     departure = 'departure'
     arrival = 'arrival'
+    unknown = 'unknown'
 
 
 class Position(Base):
@@ -49,9 +52,20 @@ class Position(Base):
     track = Column(Float)
     onground = Column(BOOLEAN, default=False)
 
-    def __init__(self, timestamp, lon, lat, alt):
-        self.time = timestamp
-        self.coordinates = from_shape(Point(lon, lat, alt), srid=SRID)
+    @property
+    def lon(self):
+        """Longitude"""
+        return to_shape(self.coordinates).coords[:][0][0]
+
+    @property
+    def lat(self):
+        """Latitude"""
+        return to_shape(self.coordinates).coords[:][0][1]
+
+    @property
+    def alt(self):
+        """Altitude [m]"""
+        return to_shape(self.coordinates).coords[:][0][2]
 
 
 class Flight(Base):
@@ -64,11 +78,10 @@ class Flight(Base):
     # gen_date_time timestamp of (any) last ADSb message of this hexident
     last_seen = Column(TIMESTAMP)
     # https://gis.stackexchange.com/questions/4467/how-to-handle-time-in-gis
-    flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
-    # arrival, departure, flyby
-    intention = Column(String(9))
-    landed = Column(BOOLEAN, default=False)
-    takeoff = Column(BOOLEAN, default=False)
+    #flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
+    intention = Column(Enum(Intention), default=Intention.unknown)
+    landed = Column(TIMESTAMP, default=False)
+    takeoff = Column(TIMESTAMP, default=False)
 
     positions = relationship('Position', backref=backref('flight', lazy=True))
 
@@ -85,6 +98,9 @@ class Flight(Base):
     def _add_position(self, x: float, y: float, z: float, t: datetime.datetime):
         """
         Adds x,y coordinates and timestamp of a single flight path position.
+
+        @note: DEPRECATED
+
         :param x: x coordinate (longitude)
         :param y: y coordinate (latitude)
         :param z: height above ground [m]
@@ -114,6 +130,9 @@ class Flight(Base):
     def flight_path(self):
         """
         Returns a iterator over tuples of timestamp and xyz coordinates.
+
+        @note: DEPRECATED
+
         :return: Iterator of (time, (x, y, z))
         """
         return ((t, xyz[0], xyz[1], xyz[2]) for t, xyz in
@@ -173,22 +192,58 @@ class Flight(Base):
         # ATTENTION: x: longitude (easting), y: latitude (northing)
         if adsb.transmission_type == 3:
             if adsb.longitude is not None and adsb.latitude is not None and adsb.altitude is not None:
-                self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
+                # self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
+                self.positions.append(Position(time=adsb.gen_date_time,
+                                               coordinates=from_shape(
+                                                   Point(adsb.longitude, adsb.latitude, feet2m(adsb.altitude)),
+                                                   srid=SRID),
+                                               onground=adsb.onground)
+                                      )
+                self.classify_intention()
             else:
                 log.warning("Cannot update position as MSG3 did not include lon/lat: {}".format(str(adsb)))
         # First MSG2 of aircraft at terminal does not contain coordinates, only 'onground'
         # Also, the altitude is not included in MSG2, and is being set here to GND_ALTITUDE (0m AGL)
         elif adsb.transmission_type == 2 and adsb.longitude is not None and adsb.latitude is not None:
-            self._add_position(adsb.longitude, adsb.latitude, GND_ALTITUDE, adsb.gen_date_time)
+            # self._add_position(adsb.longitude, adsb.latitude, GND_ALTITUDE, adsb.gen_date_time)
+            self.positions.append(Position(time=adsb.gen_date_time,
+                                           coordinates=from_shape(Point(adsb.longitude, adsb.latitude, GND_ALTITUDE),
+                                                                  srid=SRID),
+                                           onground=adsb.onground)
+                                  )
+            self.classify_intention()
 
         return self
+
+    def classify_intention(self):
+        """Sets the intention (arrival, departure, enroute) guessed from the shape of flight path."""
+
+        # Altitude difference between first_ and last_seen time to classify the flight as arrival
+        ALT_DIFF_FOR_ARRIVAL = -100
+
+        # Classification as departure flight is quite reliable (first_seen position was 'onground')
+        # In this case, the classification can be kept and all other checks skipped
+        if self.intention == Intention.departure:
+            return self.intention
+
+        if self.positions[0].onground is None:
+            self.intention = Intention.unknown
+        elif self.positions[0].onground:
+            self.intention = Intention.departure
+        else:
+            if self.positions[-1].alt - self.positions[0].alt < ALT_DIFF_FOR_ARRIVAL:
+                self.intention = Intention.arrival
+            else:
+                self.intention = Intention.enroute
+
+        return self.intention
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
-    message_source = adsb_parser.FileSource('../tests/adsb_message_stream.txt')
-    flight = Flight('405D0F')
+    message_source = adsb_parser.FileSource('../tests/adsb_message_hexident_40757F.txt')
+    flight = Flight('40757F')
 
     i = 0
     start = time.time()
@@ -198,3 +253,4 @@ if __name__ == '__main__':
     duration = time.time() - start
 
     log.info("{} operations in {}sec".format(i, duration))
+
