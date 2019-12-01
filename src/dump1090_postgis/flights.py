@@ -8,9 +8,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists  # create_database, drop_database
 from sqlalchemy.exc import DBAPIError  # SQLAlchemyError
 
-from src.config import DB_URL
-from src.dump1090_postgis import models
-from src.dump1090_postgis import adsb_parser
+from config import DB_URL
+from dump1090_postgis import models
+from dump1090_postgis import adsb_parser
 
 log = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class CurrentFlights(object):
 
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
                 adsb_message)):
-            log.info("New flight spotted: {}! Adding to current pool...".format(adsb_message.hexident))
+            log.info("New flight spotted: {} Adding to current pool...".format(adsb_message.hexident))
             new_flight = models.Flight(adsb_message.hexident)
             self._flights[adsb_message.hexident] = new_flight.update(adsb_message)
 

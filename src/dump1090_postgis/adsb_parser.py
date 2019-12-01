@@ -15,11 +15,12 @@ import re
 import socket
 import string
 from dateutil.parser.isoparser import isoparser
+from config import DUMP1090_HOST, DUMP1090_PORT
 
 # The host on which dump1090 is running
-HOST = '192.168.0.23'
+dump1090_host = DUMP1090_HOST
 # Standard Dump1090 port streaming in Base Station format
-PORT = 30003
+dump1090_port = DUMP1090_PORT
 
 log = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ class Dump1090Socket(MessageStream):
     :return: Generator for message strings, yields one full message at a time
     """
 
-    def __init__(self, hostname: string = HOST, port: int = PORT):
+    def __init__(self, hostname: string = dump1090_host, port: int = dump1090_port):
         self.port = port
         self.hostname = hostname
         super(Dump1090Socket, self).__init__()

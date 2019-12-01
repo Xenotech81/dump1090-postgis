@@ -1,5 +1,6 @@
 psycopg2
 SQLAlchemy
+sqlalchemy_utils
 GeoAlchemy2
 python-dateutil
 Shapely
