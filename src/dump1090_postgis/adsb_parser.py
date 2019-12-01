@@ -136,7 +136,7 @@ class AdsbMessage(object):
                  r'(?P<gen_date_time>[0-9/]+,[0-9:\.]+),' \
                  r'(?P<log_date_time>[0-9/]+,[0-9:\.]+),' \
                  r'(?P<callsign>[\w\s]*),' \
-                 r'(?P<altitude>\d*),' \
+                 r'(?P<altitude>[\d\-]*),' \
                  r'(?P<speed>\d*),' \
                  r'(?P<track>[\d\-]*),' \
                  r'(?P<latitude>[\d\-\.]*),' \
