@@ -3,7 +3,8 @@ FROM python:3-slim-stretch
 RUN apt-get -y update && apt-get -y install \
     gcc \
     libpq5 \
-    libpq-dev
+    libpq-dev \
+    libgeos-dev
 
 ENV DUMP1090_HOST=192.168.0.23 \
     DUMP1090_PORT=30003 \
