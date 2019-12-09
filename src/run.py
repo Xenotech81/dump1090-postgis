@@ -12,9 +12,11 @@ def main():
     current_flights = CurrentFlights(adsb_filter=AdsbMessageFilter(below=10000))
 
     message_source = Dump1090Socket()
-
-    for msg in AdsbMessage(message_source):
-        current_flights.update(msg)
+    try:
+        for msg in AdsbMessage(message_source):
+            current_flights.update(msg)
+    except KeyboardInterrupt:
+        log.info("Shutting down ADSb logging service")
 
 
 if __name__ == "__main__":
