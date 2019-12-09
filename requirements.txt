@@ -1,3 +1,4 @@
+click
 psycopg2
 SQLAlchemy
 sqlalchemy_utils
