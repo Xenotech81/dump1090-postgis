@@ -13,7 +13,7 @@ You might have to precede this command with a `sudo` depending on your Docker co
 ## Quick-start
 After building, run the image from Linux command line:
 ```bash
-docker run --name dump1090-postgis --restart unless-stopped --network host xenotech81/dump1090-postgis:latest
+docker run -d --name dump1090-postgis --restart unless-stopped --network host xenotech81/dump1090-postgis:latest
 ```
 Again, a `sudo` might be needed here.
 
