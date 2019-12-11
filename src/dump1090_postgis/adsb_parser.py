@@ -16,6 +16,7 @@ import socket
 import string
 from dateutil.parser.isoparser import isoparser
 from config import DUMP1090_HOST, DUMP1090_PORT
+from time import sleep
 
 # The host on which dump1090 is running
 dump1090_host = DUMP1090_HOST
@@ -32,8 +33,14 @@ class MessageStream(abc.ABC):
     Abstract Base Class to be used as template for ADSB message stream generators.
     """
 
+    # Number of attempts to reconnect to the ADSb message source (e.g. socket).
+    RECONNECTIONS = 5
+
     def __init__(self):
-        self._message_iterator = self._initiate_stream()
+        try:
+            self._message_iterator = self._initiate_stream()
+        except ConnectionError as err:
+            raise ConnectionError("Cannot initiate message stream: {}".format(str(err)))
 
     def __iter__(self) -> string:
         """
@@ -41,15 +48,28 @@ class MessageStream(abc.ABC):
         The iterator is created before by calling _initiate_stream().
         :return: ADSB message string
         """
-        for msg in self._message_iterator:
-            msg_length = len(msg.split(","))
-            if msg_length == 22:
-                yield msg.strip()
-            else:
-                log.error("Received wrong message length ({}/22). Skipping message '{}'".format(msg_length, msg))
-                continue
+        while True:
+            try:
+                for msg in self._message_iterator:
+                    msg_length = len(msg.split(","))
+                    if msg_length == 22:
+                        yield msg.strip()
+                    else:
+                        log.error("Received wrong message length ({}/22). Skipping message '{}'".format(msg_length, msg))
+                        continue
+            except self.exception:
+                try:
+                    self._message_iterator = self._initiate_stream()
+                except ConnectionError as err:
+                    log.critical("Connection to socket lost permanently:{}".format(str(err)))
+                    break
 
         self._on_close()
+
+    @property
+    @abc.abstractmethod
+    def exception(self):
+        """Defines the exception raised if socket connection is lost. """
 
     @abc.abstractmethod
     def _on_close(self):
@@ -68,6 +88,8 @@ class MessageStream(abc.ABC):
 
         Example string:
         MSG,8,1,1,400BE5,1,2019/10/16,20:48:00.473,2019/10/16,20:48:00.473,,,,,,,,,,,,0
+
+        Must raise ConnectionError if RECONNECTIONS attempts to connect to message source fail.
 
         :return: Iterator of ADSB message strings (file object like)
         """
@@ -90,12 +112,30 @@ class Dump1090Socket(MessageStream):
     def _initiate_stream(self):
         """
         Returns generator for ADSB message strings received from port on hostname.
+        Tries to connect RECONNECTIONS times, raises ConnectionError if all attempts fail.
         :return: Generator for message strings
         """
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((self.hostname, int(self.port)))
 
-        return sock.makefile()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        for attempt in range(self.RECONNECTIONS):
+            try:
+                sock.connect((self.hostname, int(self.port)))
+                return sock.makefile()
+            except socket.error:
+                log.error("Attempt {]/{} failed connecting to {}:{}.".format(attempt + 1,
+                                                                                            self.RECONNECTIONS,
+                                                                                            self.hostname,
+                                                                                            int(self.port)))
+                sleep(0.5)
+                continue
+
+        log.critical("Port {}:{} unreachable".format(self.hostname, int(self.port)))
+        raise ConnectionError("Port {}:{} unreachable".format(self.hostname, int(self.port)))
+
+    @property
+    def exception(self):
+        return socket.error
 
     def _on_close(self):
         self._message_iterator.close()
@@ -111,7 +151,11 @@ class FileSource(MessageStream):
         try:
             return open(self._file_path, 'r')
         except FileNotFoundError as err:
-            raise FileNotFoundError("Cannot read message source: {}".format(str(err)))
+            raise ConnectionError("Cannot read file: {}".format(str(err)))
+
+    @property
+    def exception(self):
+        return IOError
 
     def _on_close(self):
         self._message_iterator.close()
@@ -168,7 +212,7 @@ class AdsbMessage(object):
         'emergency': (lambda v: True if v == '-1' else False),
         'spi': (lambda v: True if v == '-1' else False),
         'onground': (lambda v: True if v == '-1' else False),
-    }
+        }
 
     def __init__(self, message_stream: MessageStream):
         """
