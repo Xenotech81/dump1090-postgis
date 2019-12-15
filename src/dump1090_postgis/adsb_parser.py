@@ -9,7 +9,6 @@ https://github.com/bzamecnik/dump1090-archive
 https://github.com/slintak/adsb2influx
 """
 import abc
-import datetime
 import logging
 import re
 import socket
@@ -104,6 +103,8 @@ class Dump1090Socket(MessageStream):
     :return: Generator for message strings, yields one full message at a time
     """
 
+    SOCKET_TIMEOUT = 1.0
+
     def __init__(self, hostname: string = dump1090_host, port: int = dump1090_port):
         self.port = port
         self.hostname = hostname
@@ -117,16 +118,20 @@ class Dump1090Socket(MessageStream):
         """
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(self.SOCKET_TIMEOUT)
 
         for attempt in range(self.RECONNECTIONS):
             try:
                 sock.connect((self.hostname, int(self.port)))
                 return sock.makefile()
-            except socket.error:
-                log.error("Attempt {]/{} failed connecting to {}:{}.".format(attempt + 1,
-                                                                                            self.RECONNECTIONS,
-                                                                                            self.hostname,
-                                                                                            int(self.port)))
+            except (socket.error, socket.timeout) as err:
+                log.error("Attempt {i]/{i_max} failed connecting to {host}:{port}: {error}.".format(i=attempt + 1,
+                                                                                            i_max=self.RECONNECTIONS,
+                                                                                            host=self.hostname,
+                                                                                            port=int(self.port),
+                                                                                            error=str(err)
+                                                                                                    )
+                          )
                 sleep(0.5)
                 continue
 
