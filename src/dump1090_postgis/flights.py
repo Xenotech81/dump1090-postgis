@@ -28,7 +28,7 @@ class CurrentFlights(object):
     """
 
     # Maximum age in seconds since last seen of a flight before it gets deleted from the pool
-    MAX_AGE = 120
+    MAX_AGE = 300
     # Commit to Postgres every X seconds
     DB_COMMIT_PERIOD = 1
 
@@ -70,9 +70,9 @@ class CurrentFlights(object):
         After adding the new hexident to the pool, the Flight instance is updated and added to the SQL session.
         Finally, the session is commited to DB.
 
+        In any case, the flight pool is 'pruned' = aged flighs are removed
+
         :param adsb_message: Instance of adsb_parser.AdsbMessage
-        :param adsb_filter: Configured AdsbMessageFilter instance
-        :return: None
         """
 
         if adsb_message.hexident in self._flights:
@@ -92,6 +92,8 @@ class CurrentFlights(object):
 
             session.add(self._flights[adsb_message.hexident])
             self._commit_flights()
+
+            self.prune()
 
     def prune(self):
         """
@@ -115,14 +117,9 @@ class CurrentFlights(object):
         """
         _now = datetime.datetime.utcnow()
 
-        if period is None:
+        if period is None or _now > self.__last_session_commit + datetime.timedelta(seconds=self.DB_COMMIT_PERIOD):
             session.commit()
-        elif _now > self.__last_session_commit + datetime.timedelta(seconds=self.DB_COMMIT_PERIOD):
-            session.commit()
-        else:
-            return
-
-        self.__last_session_commit = _now
+            self.__last_session_commit = _now
 
     def __repr__(self):
         return "Current flight pool contains {} fights: \n{}".format(len(self), '\n'.join(self.hexidents()))
