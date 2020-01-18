@@ -9,9 +9,11 @@ log = logging.getLogger(__name__)
 
 
 def main():
+    log.info(">>> WELCOME TO THE ADSB POSTGIS LOGGER <<<")
     current_flights = CurrentFlights(adsb_filter=AdsbMessageFilter(below=10000))
 
     message_source = Dump1090Socket()
+    log.info("Start logging messages...")
     try:
         for msg in AdsbMessage(message_source):
             current_flights.update(msg)
