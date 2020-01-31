@@ -6,7 +6,7 @@ RUN apt-get -y update && apt-get -y install \
     libpq-dev \
     libgeos-dev
 
-ENV DUMP1090_HOST=192.168.0.23 \
+ENV DUMP1090_HOST=192.168.0.14 \
     DUMP1090_PORT=30003 \
     POSTGRES_HOST=localhost \
     POSTGRES_PORT=5432 \
