@@ -62,7 +62,8 @@ class CurrentFlights(object):
         Updates the flight pool from a ADSb message object and commits to Postgres.
 
         If hexident is already known, the according Flight instance will get updated with the message contents and
-        merged into the current SQL session.
+        merged into the current SQL session, if it passes all filters (e.g. altitude).
+
         If hexident is unknown, it will be added to the pool in one of the cases:
             1. Transmission type is 2: Aircraft is on ground, only lat/lon is transmitted. No altitude filter
             applicable.
@@ -70,12 +71,12 @@ class CurrentFlights(object):
         After adding the new hexident to the pool, the Flight instance is updated and added to the SQL session.
         Finally, the session is commited to DB.
 
-        In any case, the flight pool is 'pruned' = aged flighs are removed
+        In any case, the flight pool is 'pruned' = aged flights are removed
 
         :param adsb_message: Instance of adsb_parser.AdsbMessage
         """
 
-        if adsb_message.hexident in self._flights:
+        if adsb_message.hexident in self._flights and self._adsb_filter.altitude(adsb_message):
             self._flights[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
             session.merge(self._flights[adsb_message.hexident])
@@ -94,11 +95,7 @@ class CurrentFlights(object):
         self.prune()
 
     def prune(self):
-        """
-        Removes all flights from the pool which are older than MAX_AGE.
-        :return:
-        :rtype:
-        """
+        """Remove all flights from the pool which are older than MAX_AGE."""
         _aged__flights = list(filter(lambda f: f.age > datetime.timedelta(seconds=self.MAX_AGE),
                                      self._flights.values()))
         for f in _aged__flights:
