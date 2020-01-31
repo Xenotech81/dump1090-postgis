@@ -95,30 +95,6 @@ class Flight(Base):
     def __str__(self):
         return "Flight {hexident}: last seen: {last_seen}".format(**self.__dict__)
 
-    def _add_position(self, x: float, y: float, z: float, t: datetime.datetime):
-        """
-        Adds x,y coordinates and timestamp of a single flight path position.
-
-        @note: DEPRECATED
-
-        :param x: x coordinate (longitude)
-        :param y: y coordinate (latitude)
-        :param z: height above ground [m]
-        :param t: timestamp (todo: DateTime is still passed, change this)
-        :return:
-        """
-        self.__flightpath.append([x, y, feet2m(z)])
-        self.__times.append(t)
-
-        self.positions.append(Position(t, x, y, feet2m(z)))
-
-        # A LineString must consist of at least 2 point to form a line segment
-        if len(self.__flightpath) <= 1:
-            pass
-        else:
-            # Adding 3D LineString instead of 2D slowed down the process by factor 3!
-            self.flightpath = from_shape(LineString(self.__flightpath), srid=SRID)
-
     @property
     def age(self) -> datetime.timedelta:
         """
@@ -126,17 +102,6 @@ class Flight(Base):
         :return: Age in seconds since last seen
         """
         return datetime.datetime.utcnow() - self.last_seen
-
-    def flight_path(self):
-        """
-        Returns a iterator over tuples of timestamp and xyz coordinates.
-
-        @note: DEPRECATED
-
-        :return: Iterator of (time, (x, y, z))
-        """
-        return ((t, xyz[0], xyz[1], xyz[2]) for t, xyz in
-                zip(self.__times, self.__flightpath))
 
     def update(self, adsb: adsb_parser.AdsbMessage):
         """

@@ -82,8 +82,6 @@ class CurrentFlights(object):
 
             self._commit_flights(period=self.DB_COMMIT_PERIOD)
 
-            self.prune()
-
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
                 adsb_message)):
             log.info("New flight spotted: {} Adding to current pool...".format(adsb_message.hexident))
@@ -93,7 +91,7 @@ class CurrentFlights(object):
             session.add(self._flights[adsb_message.hexident])
             self._commit_flights()
 
-            self.prune()
+        self.prune()
 
     def prune(self):
         """
@@ -126,27 +124,6 @@ class CurrentFlights(object):
 
     def hexidents(self):
         return self._flights.keys()
-
-    def flight_path_to_csv(self, hexidents, folder=None):
-        """
-        Saves the 3D flight paths as CSV tables, formatted for GE's kml files.
-
-        :param hexidents: List of strings of hexidents
-        :param folder: Optional directory to save the files in
-        """
-
-        if folder is None:
-            folder = os.getcwd()
-        else:
-            assert os.path.isdir(folder)
-
-        # Saving flight path to file
-        for hex in hexidents:
-            with open(os.path.join(folder, "flight_path_{}.dat".format(hex)), 'w') as f:
-                for position in self[hex].flight_path():
-                    # f.write(','.join(map(str, position[1:4]))+'\n')
-                    f.write("{:.5f},{:.5f},{:.1f} ".format(*position[1:4]))
-                log.info("Flight path {} written to {}".format(hex, f.name))
 
 
 def create_flight_table():
