@@ -10,7 +10,9 @@ log = logging.getLogger(__name__)
 
 def main():
     log.info(">>> WELCOME TO THE ADSB POSTGIS LOGGER <<<")
-    current_flights = CurrentFlights(adsb_filter=AdsbMessageFilter(below=10000))
+
+    from dbmanager import session
+    current_flights = CurrentFlights(session=session, adsb_filter=AdsbMessageFilter(below=10000))
 
     message_source = Dump1090Socket()
     log.info("Start logging messages...")

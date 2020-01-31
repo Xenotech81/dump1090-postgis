@@ -1,23 +1,16 @@
 import datetime
 import logging
-import os
 import string
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists  # create_database, drop_database
 from sqlalchemy.exc import DBAPIError  # SQLAlchemyError
+from sqlalchemy.orm.session import Session
 
 from config import DB_URL
 from dump1090_postgis import models
 from dump1090_postgis import adsb_parser
 
 log = logging.getLogger(__name__)
-
-engine = create_engine(DB_URL, echo=False)
-Session = sessionmaker(bind=engine)
-
-session = Session()
 
 
 class CurrentFlights(object):
@@ -32,11 +25,23 @@ class CurrentFlights(object):
     # Commit to Postgres every X seconds
     DB_COMMIT_PERIOD = 1
 
-    def __init__(self, adsb_filter: adsb_parser.AdsbMessageFilter = None):
+    def __init__(self, session: Session, adsb_filter: adsb_parser.AdsbMessageFilter = None):
+        """
+        Constructor of the flight pool.
+
+        :param session: A DB connection instance.
+        :type session: sqlalchemy.orm.session.Session
+        :param adsb_filter: The filter object which will decide if a flight will be tracked or not
+        :type adsb_filter: adsb_parser.AdsbMessageFilter
+        """
+
+        assert isinstance(session, Session)
+        assert isinstance(adsb_filter, adsb_parser.AdsbMessageFilter)
+
         # Key-value pairs of fight hexident and models.Flight instances
         self._flights = {}
         self._adsb_filter = adsb_filter
-
+        self.__session = session
         self.__last_session_commit = datetime.datetime.utcnow()
 
     def __getitem__(self, hexident: string) -> models.Flight:
@@ -79,7 +84,7 @@ class CurrentFlights(object):
         if adsb_message.hexident in self._flights and self._adsb_filter.altitude(adsb_message):
             self._flights[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
-            session.merge(self._flights[adsb_message.hexident])
+            self.__session.merge(self._flights[adsb_message.hexident])
 
             self._commit_flights(period=self.DB_COMMIT_PERIOD)
 
@@ -89,7 +94,7 @@ class CurrentFlights(object):
             new_flight = models.Flight(adsb_message.hexident)
             self._flights[adsb_message.hexident] = new_flight.update(adsb_message)
 
-            session.add(self._flights[adsb_message.hexident])
+            self.__session.add(self._flights[adsb_message.hexident])
             self._commit_flights()
 
         self.prune()
@@ -113,7 +118,7 @@ class CurrentFlights(object):
         _now = datetime.datetime.utcnow()
 
         if period is None or _now > self.__last_session_commit + datetime.timedelta(seconds=self.DB_COMMIT_PERIOD):
-            session.commit()
+            self.__session.commit()
             self.__last_session_commit = _now
 
     def __repr__(self):
@@ -128,6 +133,8 @@ def create_flight_table():
     Recreates flights table in DB.
     L(https://docs.sqlalchemy.org/en/13/core/exceptions.html)
     """
+    from dbmanager import engine
+
     if database_exists(DB_URL):
         try:
             models.Flight.__table__.create(engine)
@@ -143,6 +150,8 @@ def delete_flight_table():
     Deletes flights table in DB.
     L(https://docs.sqlalchemy.org/en/13/core/exceptions.html)
     """
+    from dbmanager import engine
+
     if database_exists(DB_URL):
         try:
             models.Position.__table__.drop(engine)
