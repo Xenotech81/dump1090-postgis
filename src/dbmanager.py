@@ -20,7 +20,8 @@ def cli():
 
 @cli.command(name='resetdb')
 def resetdb_command():
-    """Destroys and re-creates an empty database"""
+    """Destroys and re-creates an empty database.
+    ATTENTION: The newly created DB does not have the GIS extention!"""
 
     if database_exists(DB_URL):
         print('Deleting database.')
