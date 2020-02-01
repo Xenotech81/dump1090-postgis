@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship, backref
 from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
 from geoalchemy2.shape import from_shape, to_shape
-from shapely.geometry import LineString, Point
+from shapely.geometry import Point
 
 from dump1090_postgis import adsb_parser
 
@@ -40,6 +40,7 @@ class Intention(enum.Enum):
     departure = 'departure'
     arrival = 'arrival'
     unknown = 'unknown'
+
 
 
 class Position(Base):
