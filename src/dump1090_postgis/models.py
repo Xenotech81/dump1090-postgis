@@ -35,12 +35,16 @@ def feet2m(ft):
 class Intention(enum.Enum):
     """
     Enumerator for flight intention: departure, arrival or passing by (enroute).
+
+    - unknown: Every new Flight is instantiated with this intention
+    - departure: If first recorded position was or is *onground*
+    - arrival: Flight is decreasing in altitude
+    - enroute: If none of the other intention states are fulfilled
     """
     enroute = 'enroute'
     departure = 'departure'
     arrival = 'arrival'
     unknown = 'unknown'
-
 
 
 class Position(Base):
@@ -182,9 +186,17 @@ class Flight(Base):
         return self
 
     def classify_intention(self):
-        """Sets the intention (arrival, departure, enroute) guessed from the shape of flight path."""
+        """Updates the intention (arrival, departure, enroute) guessed from the shape of flight path.
 
-        # Altitude difference between first_ and last_seen time to classify the flight as arrival
+        Any new Flight is instantiated with intention=Intention.unknown.
+        Only if the *onground* flag of the first Position instance is True, the flight is classified as *departure*.
+        This means that departing flights which recording started only after they took off will be classified as
+        *enroute*.
+        An *arrival" flight is one which decreased its altitude since *first_seen* moment by ALT_DIFF_FOR_ARRIVAL.
+        If none of the above applies, the flight is classified as *enroute*.
+        """
+
+        # Altitude difference [meter] between first_ and last_seen time to classify the flight as arrival
         ALT_DIFF_FOR_ARRIVAL = -100
 
         # Classification as departure flight is quite reliable (first_seen position was 'onground')
