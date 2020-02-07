@@ -22,7 +22,7 @@ class Runway:
         :type name: string
         :param ref_altitude: Reference altitude ASL (in meter) of the runway
         :param direction: The direction of the runway, in degrees rel. to north
-        :param bbox: Geometric bounding box of the runway
+        :param bbox: Corner coordinates of bounding box of the runway, can be in random order
         :type bbox: List of x-y tuples
         :param length: Length of the runway in meter
         :type length: float
@@ -32,7 +32,7 @@ class Runway:
         self.ref_point = shapely.geometry.point.Point(lon, lat)
         self.ref_altitude = ref_altitude
         self.direction = direction
-        self.boundingbox = shapely.geometry.polygon.Polygon(bbox)
+        self.boundingbox = shapely.geometry.MultiPoint(bbox).bounds
         self.length = length
 
     def point_in(self, point):
@@ -69,7 +69,7 @@ class Airport:
         self.name_iata = name_iata
         self.coordinates = shapely.geometry.point.Point(lon, lat)
         self.altitude = altitude
-        self.boundingbox = shapely.geometry.polygon.Polygon(bbox)
+        self.boundingbox = shapely.geometry.MultiPoint(bbox).bounds
         self.runways = runways
 
     def get_runway(self, point: shapely.geometry.point.Point, heading: float) -> Runway:
