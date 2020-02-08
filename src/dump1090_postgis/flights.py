@@ -12,7 +12,7 @@ from dump1090_postgis.models import Position, Landings, Takeoffs
 log = logging.getLogger(__name__)
 
 
-class CurrentFlights(object):
+class CurrentFlights:
     """
     Pool of currently observed flights.
 
@@ -35,7 +35,7 @@ class CurrentFlights(object):
         """
 
         assert isinstance(session, Session)
-        assert isinstance(adsb_filter, adsb_parser.AdsbMessageFilter)
+        #assert isinstance(adsb_filter, adsb_parser.AdsbMessageFilter)
 
         # Key-value pairs of fight hexident and models.Flight instances
         self._flights = {}
