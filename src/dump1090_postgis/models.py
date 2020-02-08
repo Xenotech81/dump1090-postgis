@@ -11,10 +11,16 @@ from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
 from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import Point
+from shapely import speedups
 
 from dump1090_postgis import adsb_parser
+from dump1090_postgis.airports import Runway
+from dump1090_postgis.shared import feet2m, interpolate_track
+
 
 log = logging.getLogger(__name__)
+
+speedups.enable()
 
 Base = declarative_base()
 
@@ -25,11 +31,6 @@ ALT_UNIT = 'm'
 # Altitude [m] AGL for 'onground' flight condition (will be used to set altitude for MSG type 2)
 # Note: NTE is at 90ft ASL
 GND_ALTITUDE = 0
-
-
-def feet2m(ft):
-    """Transforms from feet (ADSb altitude unit) to meter."""
-    return 0.3048 * ft
 
 
 class Intention(enum.Enum):
@@ -72,6 +73,10 @@ class Position(Base):
         """Altitude [m]"""
         return to_shape(self.coordinates).coords[:][0][2]
 
+    @property
+    def point(self):
+        return to_shape(self.coordinates)
+
 
 class Flight(Base):
     __tablename__ = 'flights'
@@ -83,12 +88,12 @@ class Flight(Base):
     # gen_date_time timestamp of (any) last ADSb message of this hexident
     last_seen = Column(TIMESTAMP)
     # https://gis.stackexchange.com/questions/4467/how-to-handle-time-in-gis
-    #flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
+    # flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
     intention = Column(Enum(Intention), default=Intention.unknown)
     landed = Column(TIMESTAMP)
     takeoff = Column(TIMESTAMP)
 
-    positions = relationship('Position', backref=backref('flight', lazy=True))
+    positions: Position = relationship('Position', backref=backref('flight', lazy=True))
 
     def __init__(self, hexident: string):
         self.hexident = hexident
@@ -96,6 +101,9 @@ class Flight(Base):
         self.__flightpath = []
         self.__times = []
         self._transmission_type_count = dict.fromkeys(range(1, 9, 1), 0)
+
+        self._on_langing_subscribers = []
+        self._on_takeoff_subscribers = []
 
     def __str__(self):
         return "Flight {hexident}: last seen: {last_seen}".format(**self.__dict__)
@@ -107,6 +115,14 @@ class Flight(Base):
         :return: Age in seconds since last seen
         """
         return datetime.datetime.utcnow() - self.last_seen
+
+    @property
+    def interpolated_track(self):
+        """Compute flight heading from last known 2 positions."""
+        if len(self.positions) >= 2:
+            return interpolate_track([p for p in self.positions[-1:-2].reverse()])
+        else:
+            return None
 
     def update(self, adsb: adsb_parser.AdsbMessage):
         """
@@ -185,6 +201,36 @@ class Flight(Base):
 
         return self
 
+    def register_on_landing(self, subscriber):
+        """Register an on-landing subscriber."""
+        self._on_langing_subscribers.append(subscriber)
+
+    def register_on_takeoff(self, subscriber):
+        """Register an on-takeoff subscriber."""
+        self._on_takeoff_subscribers.append(subscriber)
+
+    def _broadcast_landing(self, position):
+        """Call the callback of landing subscribers."""
+        for subscriber in self._on_landing_subscribers:
+            subscriber(position, self)
+
+    def _broadcast_takeoff(self, position):
+        """Call the callback of takeoff subscribers."""
+        for subscriber in self._on_takeoff_subscribers:
+            subscriber(position, self)
+
+    def identify_onground_change(self, position):
+        """Identify takeoff or landing event and emit message to subscribers."""
+
+        if position.onground is True and self.positions[position.id - 1].onground is False:
+            self.landed = position.time
+            self._broadcast_takeoff(position)
+        elif position.onground is False and self.positions[position.id - 1].onground is True:
+            self.takeoff = position.time
+            self._broadcast_landing(position)
+        else:
+            pass
+
     def classify_intention(self):
         """Updates the intention (arrival, departure, enroute) guessed from the shape of flight path.
 
@@ -217,6 +263,32 @@ class Flight(Base):
         return self.intention
 
 
+class Landings(Base):
+    __tablename__ = 'landings'
+    id = Column(Integer, primary_key=True)
+    flight_id = Column(Integer, ForeignKey('flights.id'))
+    time = Column(TIMESTAMP, nullable=False)
+    runway = Column(String(3), nullable=False)
+
+    def __init__(self, flight: Flight, position: Position, runway: Runway):
+        self.flight_id = flight.id
+        self.time = position.time
+        self.runway = runway.name
+
+
+class Takeoffs(Base):
+    __tablename__ = 'takeoffs'
+    id = Column(Integer, primary_key=True)
+    flight_id = Column(Integer, ForeignKey('flights.id'))
+    time = Column(TIMESTAMP, nullable=False)
+    runway = Column(String(3), nullable=False)
+
+    def __init__(self, flight: Flight, position: Position, runway: Runway):
+        self.flight_id = flight.id
+        self.time = position.time
+        self.runway = runway.name
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
@@ -231,4 +303,3 @@ if __name__ == '__main__':
     duration = time.time() - start
 
     log.info("{} operations in {}sec".format(i, duration))
-

@@ -9,6 +9,8 @@ from sqlalchemy.orm.session import Session
 from config import DB_URL
 from dump1090_postgis import models
 from dump1090_postgis import adsb_parser
+from dump1090_postgis.airports import nte_airport
+from dump1090_postgis.models import Position, Flight, Landings, Takeoffs
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +45,8 @@ class CurrentFlights(object):
         self._adsb_filter = adsb_filter
         self.__session = session
         self.__last_session_commit = datetime.datetime.utcnow()
+
+        self._landing_and_takeoff_manager = LandingAndTakeoffManager(session)
 
     def __getitem__(self, hexident: string) -> models.Flight:
         try:
@@ -92,6 +96,10 @@ class CurrentFlights(object):
                 adsb_message)):
             log.info("New flight spotted: {} Adding to current pool...".format(adsb_message.hexident))
             new_flight = models.Flight(adsb_message.hexident)
+
+            new_flight.register_on_landing(self._landing_and_takeoff_manager.on_landing_callback)
+            new_flight.register_on_takeoff(self._landing_and_takeoff_manager.on_takeoff_callback)
+
             self._flights[adsb_message.hexident] = new_flight.update(adsb_message)
 
             self.__session.add(self._flights[adsb_message.hexident])
@@ -126,6 +134,36 @@ class CurrentFlights(object):
 
     def hexidents(self):
         return self._flights.keys()
+
+
+class LandingAndTakeoffManager:
+    _airports = [nte_airport]
+
+    def __init__(self, session):
+        self.__session = session
+
+    def _callback(self, position, flight, event_type):
+        assert isinstance(position, Position)
+        assert isinstance(flight, Flight)
+        assert isinstance(event_type, Landings) or isinstance(event_type, Takeoffs)
+
+        for airport in LandingAndTakeoffManager._airports:
+            runway = airport.get_runway(Position.point, flight.interpolated_track)
+            if runway:
+                self.__session.add(event_type(flight, position, runway))
+                log.info("{}: Flight {} just {} on runway {}!".format(position.time,
+                                                                      flight.id,
+                                                                  'landed' if isinstance(event_type, Landings) else
+                                                                  'took off',
+                                                                  runway.name)
+                         )
+                break
+
+    def on_landing_callback(self, *args):
+        self._callback(*args, Landings)
+
+    def on_takeoff_callback(self, *args):
+        self._callback(*args, Takeoffs)
 
 
 def create_flight_table():
