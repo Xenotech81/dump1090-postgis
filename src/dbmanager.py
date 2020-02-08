@@ -5,10 +5,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database, drop_database
-
+from sqlalchemy.exc import DBAPIError  # SQLAlchemyError
 from config import DB_URL, POSTGRES_DB
 
 import src.dump1090_postgis.models
+from dump1090_postgis import models
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -62,6 +63,42 @@ def createtables():
     print('Creating tables.')
     src.dump1090_postgis.models.Base.metadata.create_all(engine)
     print('done')
+
+
+@cli.command()
+def create_flight_table():
+    """
+    Recreates flights table in DB.
+    L(https://docs.sqlalchemy.org/en/13/core/exceptions.html)
+    """
+    from dbmanager import engine
+
+    if database_exists(DB_URL):
+        try:
+            models.Flight.__table__.create(engine)
+            models.Position.__table__.create(engine)
+        except DBAPIError as err:
+            log.warning("Cannot create table: %s", str(err))
+    else:
+        raise RuntimeError("DB {} does not exist".format(DB_URL))
+
+
+@cli.command()
+def delete_flight_table():
+    """
+    Deletes flights table in DB.
+    L(https://docs.sqlalchemy.org/en/13/core/exceptions.html)
+    """
+    from dbmanager import engine
+
+    if database_exists(DB_URL):
+        try:
+            models.Position.__table__.drop(engine)
+            models.Flight.__table__.drop(engine)
+        except DBAPIError as err:
+            log.warning("Cannot delete table: %s", str(err))
+    else:
+        raise RuntimeError("DB {} does not exist".format(DB_URL))
 
 
 if __name__ == '__main__':

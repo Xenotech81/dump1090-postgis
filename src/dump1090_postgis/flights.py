@@ -2,15 +2,12 @@ import datetime
 import logging
 import string
 
-from sqlalchemy_utils import database_exists  # create_database, drop_database
-from sqlalchemy.exc import DBAPIError  # SQLAlchemyError
 from sqlalchemy.orm.session import Session
 
-from config import DB_URL
 from dump1090_postgis import models
 from dump1090_postgis import adsb_parser
 from dump1090_postgis.airports import nte_airport
-from dump1090_postgis.models import Position, Flight, Landings, Takeoffs
+from dump1090_postgis.models import Position, Landings, Takeoffs
 
 log = logging.getLogger(__name__)
 
@@ -144,7 +141,7 @@ class LandingAndTakeoffManager:
 
     def _callback(self, position, flight, event_type):
         assert isinstance(position, Position)
-        assert isinstance(flight, Flight)
+        assert isinstance(flight, models.Flight)
         assert isinstance(event_type, Landings) or isinstance(event_type, Takeoffs)
 
         for airport in LandingAndTakeoffManager._airports:
@@ -164,40 +161,6 @@ class LandingAndTakeoffManager:
 
     def on_takeoff_callback(self, *args):
         self._callback(*args, Takeoffs)
-
-
-def create_flight_table():
-    """
-    Recreates flights table in DB.
-    L(https://docs.sqlalchemy.org/en/13/core/exceptions.html)
-    """
-    from dbmanager import engine
-
-    if database_exists(DB_URL):
-        try:
-            models.Flight.__table__.create(engine)
-            models.Position.__table__.create(engine)
-        except DBAPIError as err:
-            log.warning("Cannot create table: %s", str(err))
-    else:
-        raise RuntimeError("DB {} does not exist".format(DB_URL))
-
-
-def delete_flight_table():
-    """
-    Deletes flights table in DB.
-    L(https://docs.sqlalchemy.org/en/13/core/exceptions.html)
-    """
-    from dbmanager import engine
-
-    if database_exists(DB_URL):
-        try:
-            models.Position.__table__.drop(engine)
-            models.Flight.__table__.drop(engine)
-        except DBAPIError as err:
-            log.warning("Cannot delete table: %s", str(err))
-    else:
-        raise RuntimeError("DB {} does not exist".format(DB_URL))
 
 
 if __name__ == '__main__':
