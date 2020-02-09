@@ -82,12 +82,14 @@ class CurrentFlights:
         :param adsb_message: Instance of adsb_parser.AdsbMessage
         """
 
-        if adsb_message.hexident in self._flights and self._adsb_filter.altitude(adsb_message):
+        if adsb_message.hexident in self._flights:
             self._flights[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
             self.__session.merge(self._flights[adsb_message.hexident])
 
             self._commit_flights(period=self.DB_COMMIT_PERIOD)
+
+            self.prune()
 
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
                 adsb_message)):
@@ -102,7 +104,7 @@ class CurrentFlights:
             self.__session.add(self._flights[adsb_message.hexident])
             self._commit_flights()
 
-        self.prune()
+            self.prune()
 
     def prune(self):
         """Remove all flights from the pool which are older than MAX_AGE."""
