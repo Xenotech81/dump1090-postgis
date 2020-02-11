@@ -224,10 +224,10 @@ class Flight(Base):
 
         if position.onground is True and self.positions[position.id - 1].onground is False:
             self.landed = position.time
-            self._broadcast_takeoff(position)
+            self._broadcast_landing(position)
         elif position.onground is False and self.positions[position.id - 1].onground is True:
             self.takeoff = position.time
-            self._broadcast_landing(position)
+            self._broadcast_takeoff(position)
         else:
             pass
 
