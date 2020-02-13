@@ -43,8 +43,13 @@ class MessageStream(abc.ABC):
 
     def __iter__(self) -> string:
         """
-        Checks for correct length and yields a new ADSB message sting.
+        Checks for correct length (22 comma-separated elements) and yields a new ADSB message sting.
+
         The iterator is created before by calling _initiate_stream().
+        If the connection should be lost (a self.exception is raised),
+        a reconnect attempt is performed by calling _initiate_stream().
+        If this attempt succeeds, the yielding is continued; if it failed,
+        the iterator stops.
         :return: ADSB message string
         """
         while True:
@@ -59,6 +64,7 @@ class MessageStream(abc.ABC):
             except self.exception:
                 try:
                     self._message_iterator = self._initiate_stream()
+                    continue
                 except ConnectionError as err:
                     log.critical("Connection to socket lost permanently:{}".format(str(err)))
                     break
@@ -120,19 +126,20 @@ class Dump1090Socket(MessageStream):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.SOCKET_TIMEOUT)
 
+        log.info("Connecting to Dump1090 source on {}:{}".format(self.hostname, self.port))
         for attempt in range(self.RECONNECTIONS):
             try:
                 sock.connect((self.hostname, int(self.port)))
                 return sock.makefile()
             except (socket.error, socket.timeout) as err:
-                log.error("Attempt {i]/{i_max} failed connecting to {host}:{port}: {error}.".format(i=attempt + 1,
+                log.error("Attempt {i}/{i_max} failed connecting to {host}:{port}: {error}.".format(i=attempt + 1,
                                                                                             i_max=self.RECONNECTIONS,
                                                                                             host=self.hostname,
                                                                                             port=int(self.port),
                                                                                             error=str(err)
                                                                                                     )
                           )
-                sleep(0.5)
+                sleep(1)
                 continue
 
         log.critical("Port {}:{} unreachable".format(self.hostname, int(self.port)))
@@ -166,7 +173,7 @@ class FileSource(MessageStream):
         self._message_iterator.close()
 
 
-class AdsbMessage(object):
+class AdsbMessage:
     """
     ADSb message instance created from a string in Base Station format.
 
@@ -284,7 +291,7 @@ class AdsbMessage(object):
             yield self
 
 
-class AdsbMessageFilter(object):
+class AdsbMessageFilter:
 
     def __init__(self, below: int = 100000, above=-1000, radius: int = 500000, faster: int = 0, slower: int = 30000,
                  rising: bool = None, descending: bool = None, onground: bool = None):
@@ -353,7 +360,8 @@ class AdsbMessageFilter(object):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
-    message_source = FileSource('../tests/adsb_message_hexident_40757F.txt')
+    #message_source = FileSource('../tests/adsb_messages_faulty.txt')
+    message_source = Dump1090Socket()
     for msg in AdsbMessage(message_source):
         log.info(msg)
         # Altitude filter test:
