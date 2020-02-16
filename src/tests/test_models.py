@@ -112,12 +112,22 @@ class TestFlightModel(unittest.TestCase):
         self.Flight._broadcast_takeoff = Mock()
 
         flight = self.Flight("taxi")
-        flight.identify_onground_change(position_taxi_2)
 
         self.assertFalse(flight._broadcast_takeoff.called), "No broadcast"
         self.assertFalse(flight._broadcast_landing.called), "No broadcast"
         self.assertEqual(flight.takeoff, None)
         self.assertEqual(flight.landed, None)
+
+    def test_identify_onground_change_first_position(self):
+        position_0 = self.position_0
+        position_0.onground = True
+
+        self.Flight.positions = []  # There are no previous positions...
+        flight = self.Flight("FirstPosition")
+
+        with patch('dump1090_postgis.models.logging.warning') as warning:
+            flight.identify_onground_change(position_0)
+            self.assertTrue(warning.called_once())
 
 
 if __name__ == '__main__':

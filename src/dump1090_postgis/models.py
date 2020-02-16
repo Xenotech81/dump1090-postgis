@@ -219,17 +219,28 @@ class Flight(Base):
         for subscriber in self._on_takeoff_subscribers:
             subscriber(position, self)
 
-    def identify_onground_change(self, position):
-        """Identify takeoff or landing event and emit message to subscribers."""
+    def identify_onground_change(self, current_position):
+        """Identify takeoff or landing event and emit message to subscribers.
 
-        if position.onground is True and self.positions[position.id - 1].onground is False:
-            self.landed = position.time
-            self._broadcast_landing(position)
-        elif position.onground is False and self.positions[position.id - 1].onground is True:
-            self.takeoff = position.time
-            self._broadcast_takeoff(position)
+        :param current_position: The current (latest) aircraft position
+        :type current_position: Position
+        """
+
+        try:
+            previous_position = self.positions[current_position.id - 1]
+        except (IndexError, KeyError):
+            log.warning("No previous position found for flight {} and position id {}".format(
+                current_position.flight_id, current_position.id))
+            return
+
+        if current_position.onground and not previous_position.onground:
+            self.landed = current_position.time
+            self._broadcast_landing(current_position)
+        elif not current_position.onground and previous_position.onground:
+            self.takeoff = current_position.time
+            self._broadcast_takeoff(current_position)
         else:
-            pass
+            return
 
     def classify_intention(self):
         """Updates the intention (arrival, departure, enroute) guessed from the shape of flight path.
