@@ -8,7 +8,6 @@ from sqlalchemy_utils import database_exists, create_database, drop_database
 from sqlalchemy.exc import DBAPIError  # SQLAlchemyError
 from config import DB_URL, POSTGRES_DB
 
-import src.dump1090_postgis.models
 from dump1090_postgis import models
 
 logging.basicConfig(level=logging.INFO)
