@@ -83,9 +83,9 @@ class CurrentFlights:
         """
 
         if adsb_message.hexident in self._flights:
-            self._flights[adsb_message.hexident].update(adsb_message)
+            self[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
-            self.__session.merge(self._flights[adsb_message.hexident])
+            self.__session.merge(self[adsb_message.hexident])
 
             self._commit_flights(period=self.DB_COMMIT_PERIOD)
 
@@ -94,12 +94,12 @@ class CurrentFlights:
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
                 adsb_message)):
             log.info("New flight spotted: {} Adding to current pool...".format(adsb_message.hexident))
-            new_flight = models.Flight(adsb_message.hexident)
+            self[adsb_message.hexident] = models.Flight(adsb_message.hexident)
 
-            new_flight.register_on_landing(self._landing_and_takeoff_manager.on_landing_callback)
-            new_flight.register_on_takeoff(self._landing_and_takeoff_manager.on_takeoff_callback)
+            self[adsb_message.hexident].register_on_landing(self._landing_and_takeoff_manager.on_landing_callback)
+            self[adsb_message.hexident].register_on_takeoff(self._landing_and_takeoff_manager.on_takeoff_callback)
 
-            self._flights[adsb_message.hexident] = new_flight.update(adsb_message)
+            self[adsb_message.hexident] = self[adsb_message.hexident].update(adsb_message)
 
             self.__session.add(self._flights[adsb_message.hexident])
             self._commit_flights()
@@ -144,25 +144,26 @@ class LandingAndTakeoffManager:
     def _callback(self, position, flight, event_type):
         assert isinstance(position, Position)
         assert isinstance(flight, models.Flight)
-        assert isinstance(event_type, Landings) or isinstance(event_type, Takeoffs)
+        assert issubclass(event_type, (Landings, Takeoffs))
 
         for airport in LandingAndTakeoffManager._airports:
-            runway = airport.get_runway(Position.point, flight.interpolated_track)
+            runway = airport.get_runway(position.point, flight.interpolated_track)
             if runway:
                 self.__session.add(event_type(flight, position, runway))
                 log.info("{}: Flight {} just {} on runway {}!".format(position.time,
                                                                       flight.id,
-                                                                  'landed' if isinstance(event_type, Landings) else
+                                                                  'landed' if issubclass(event_type, Landings) else
                                                                   'took off',
                                                                   runway.name)
                          )
+                self.__session.commit()
                 break
 
-    def on_landing_callback(self, *args):
-        self._callback(*args, Landings)
+    def on_landing_callback(self, position, flight):
+        self._callback(position, flight, Landings)
 
-    def on_takeoff_callback(self, *args):
-        self._callback(*args, Takeoffs)
+    def on_takeoff_callback(self, position, flight):
+        self._callback(position, flight, Takeoffs)
 
 
 if __name__ == '__main__':

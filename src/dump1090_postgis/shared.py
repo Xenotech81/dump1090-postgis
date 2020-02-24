@@ -33,11 +33,10 @@ def angle2deg(angle):
 def interpolate_track(positions: iter, poly_order: int = 1):
     """Compute flight heading from a list of points by least squares polynomial fit.
 
-    :param positions: Positinons to interpolate the track from
+    :param positions: List of Position instances to interpolate the track from
     :type positions: list of shapely.geometry.Point
     """
-
-    points = np.array(LineString(positions))
+    points = np.array(LineString([p.point for p in positions]))
     rad = np.arctan2(np.diff(points[..., 1]), np.diff(points[..., 0]))
     angle = np.rad2deg(rad)
 

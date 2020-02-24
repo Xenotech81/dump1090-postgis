@@ -13,6 +13,7 @@ from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import Point
 from shapely import speedups
 
+from dbmanager import session
 from dump1090_postgis import adsb_parser
 from dump1090_postgis.airports import Runway
 from dump1090_postgis.shared import feet2m, interpolate_track
@@ -58,6 +59,15 @@ class Position(Base):
     track = Column(Integer)
     onground = Column(BOOLEAN, default=False)
 
+    def __str__(self):
+        return "Position {id} of flight {flight_id} at {time}: {coordinates} (onground={onground})".format(
+            id=self.id,
+            flight_id = self.flight_id,
+            time = self.time,
+            coordinates = to_shape(self.coordinates).coords[:],
+            onground = self.onground
+            )
+
     @property
     def lon(self):
         """Longitude"""
@@ -101,8 +111,10 @@ class Flight(Base):
         self.__times = []
         self._transmission_type_count = dict.fromkeys(range(1, 9, 1), 0)
 
-        self._on_langing_subscribers = []
+        self._on_landing_subscribers = []
         self._on_takeoff_subscribers = []
+
+        self._ground_change_detected = False
 
     def __str__(self):
         return "Flight {hexident}: last seen: {last_seen}".format(**self.__dict__)
@@ -119,7 +131,7 @@ class Flight(Base):
     def interpolated_track(self):
         """Compute flight heading from last known 2 positions."""
         if len(self.positions) >= 2:
-            return interpolate_track([p for p in self.positions[-1:-2].reverse()])
+            return interpolate_track(self.positions[-2:])
         else:
             return None
 
@@ -178,13 +190,16 @@ class Flight(Base):
         if adsb.transmission_type == 3:
             if adsb.longitude is not None and adsb.latitude is not None and adsb.altitude is not None:
                 # self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
-                self.positions.append(Position(time=adsb.gen_date_time,
+                position = Position(time=adsb.gen_date_time,
                                                coordinates=from_shape(
                                                    Point(adsb.longitude, adsb.latitude, feet2m(adsb.altitude)),
                                                    srid=SRID),
                                                onground=adsb.onground)
-                                      )
+                self.positions.append(position)
+                session.flush()
+                self.identify_onground_change()
                 self.classify_intention()
+
             else:
                 log.warning("Cannot update position as MSG3 did not include lon/lat: {}".format(str(adsb)))
         # First MSG2 of aircraft at terminal does not contain coordinates, only 'onground'
@@ -196,13 +211,15 @@ class Flight(Base):
                                                                   srid=SRID),
                                            onground=adsb.onground)
                                   )
+            session.flush()
             self.classify_intention()
+            self.identify_onground_change()
 
         return self
 
     def register_on_landing(self, subscriber):
         """Register an on-landing subscriber."""
-        self._on_langing_subscribers.append(subscriber)
+        self._on_landing_subscribers.append(subscriber)
 
     def register_on_takeoff(self, subscriber):
         """Register an on-takeoff subscriber."""
@@ -210,6 +227,7 @@ class Flight(Base):
 
     def _broadcast_landing(self, position):
         """Call the callback of landing subscribers."""
+        print("Broadcasting!")
         for subscriber in self._on_landing_subscribers:
             subscriber(position, self)
 
@@ -218,26 +236,31 @@ class Flight(Base):
         for subscriber in self._on_takeoff_subscribers:
             subscriber(position, self)
 
-    def identify_onground_change(self, current_position):
-        """Identify takeoff or landing event and emit message to subscribers.
+    def identify_onground_change(self):
+        """Identify takeoff or landing event and emit message to subscribers."""
 
-        :param current_position: The current (latest) aircraft position
-        :type current_position: Position
-        """
+        current_position = self.positions[-1]
 
-        try:
-            previous_position = self.positions[current_position.id - 1]
-        except (IndexError, KeyError):
-            log.warning("No previous position found for flight {} and position id {}".format(
-                current_position.flight_id, current_position.id))
+        # Skip all checks if takeoff or landing was previously detected for this flight to save CPU.
+        # Also the very first position of a session does not have an id yet.
+        if self._ground_change_detected or current_position.id is None:
             return
-
-        if current_position.onground and not previous_position.onground:
-            self._broadcast_landing(current_position)
-        elif not current_position.onground and previous_position.onground:
-            self._broadcast_takeoff(current_position)
         else:
-            return
+            print("identify_onground_change for : {}".format(current_position))
+
+            try:
+                previous_position = self.positions[-2]
+            except IndexError as err:
+                log.warning("No previous position found for flight {} and position id {}".format(
+                    current_position.flight_id, current_position.id, str(err)))
+                return
+
+            if current_position.onground and not previous_position.onground:
+                self._broadcast_landing(current_position)
+            elif not current_position.onground and previous_position.onground:
+                self._broadcast_takeoff(current_position)
+            else:
+                return
 
     def classify_intention(self):
         """Updates the intention (arrival, departure, enroute) guessed from the shape of flight path.
