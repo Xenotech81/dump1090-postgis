@@ -51,11 +51,11 @@ class Intention(enum.Enum):
 class Position(Base):
     __tablename__ = 'positions'
     id = Column(BigInteger, primary_key=True)
-    flight_id = Column(Integer, ForeignKey('flights.id'))
+    flight_id = Column(Integer, ForeignKey('flights.id', ondelete='CASCADE'))
     time = Column(TIMESTAMP, nullable=False)
     coordinates = Column(Geometry('POINTZ', srid=SRID, dimension=3))
-    verticalrate = Column(Float)
-    track = Column(Float)
+    verticalrate = Column(Integer)
+    track = Column(Integer)
     onground = Column(BOOLEAN, default=False)
 
     @property
@@ -90,10 +90,9 @@ class Flight(Base):
     # https://gis.stackexchange.com/questions/4467/how-to-handle-time-in-gis
     # flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
     intention = Column(Enum(Intention), default=Intention.unknown)
-    landed = Column(TIMESTAMP)
-    takeoff = Column(TIMESTAMP)
 
-    positions: Position = relationship('Position', backref=backref('flight', lazy=True))
+    #https://stackoverflow.com/questions/5033547/sqlalchemy-cascade-delete
+    positions: Position = relationship('Position', backref=backref('flight', lazy=True), passive_deletes=True)
 
     def __init__(self, hexident: string):
         self.hexident = hexident
