@@ -41,7 +41,7 @@ class CurrentFlights:
         self._flights = {}
         self._adsb_filter = adsb_filter
         self.__session = session
-        self.__last_session_commit = datetime.datetime.utcnow()
+        self.__last_session_commit = datetime.datetime.now(datetime.timezone.utc)
 
         self._landing_and_takeoff_manager = LandingAndTakeoffManager(session)
 
@@ -122,7 +122,7 @@ class CurrentFlights:
         If an integer is provided as a commit period (in seconds), the commit is delayed by this amount relative to
         the time value saved in the instance attribute __last_session_commit.
         """
-        _now = datetime.datetime.utcnow()
+        _now = datetime.datetime.now(datetime.timezone.utc)
 
         if period is None or _now > self.__last_session_commit + datetime.timedelta(seconds=self.DB_COMMIT_PERIOD):
             self.__session.commit()

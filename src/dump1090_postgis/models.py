@@ -114,7 +114,7 @@ class Flight(Base):
         Computes the age in seconds since last seen.
         :return: Age in seconds since last seen
         """
-        return datetime.datetime.utcnow() - self.last_seen
+        return datetime.datetime.now(datetime.timezone.utc) - self.last_seen
 
     @property
     def interpolated_track(self):
@@ -234,10 +234,8 @@ class Flight(Base):
             return
 
         if current_position.onground and not previous_position.onground:
-            self.landed = current_position.time
             self._broadcast_landing(current_position)
         elif not current_position.onground and previous_position.onground:
-            self.takeoff = current_position.time
             self._broadcast_takeoff(current_position)
         else:
             return

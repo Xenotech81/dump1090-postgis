@@ -14,6 +14,7 @@ import re
 import socket
 import string
 from dateutil.parser.isoparser import isoparser
+import datetime
 from config import DUMP1090_HOST, DUMP1090_PORT
 from time import sleep
 
@@ -210,8 +211,11 @@ class AdsbMessage:
         'session': (lambda v: int(v)),
         'aircraft': (lambda v: int(v)),
         'flight': (lambda v: int(v)),
-        'gen_date_time': (lambda v: _date_time_parser.isoparse(v.replace('/', '-'))),
-        'log_date_time': (lambda v: _date_time_parser.isoparse(v.replace('/', '-'))),
+        # https://stackoverflow.com/questions/7065164/how-to-make-an-unaware-datetime-timezone-aware-in-python
+        'gen_date_time': (lambda v: _date_time_parser.isoparse(v.replace('/', '-')).replace(
+            tzinfo=datetime.timezone.utc)),
+        'log_date_time': (lambda v: _date_time_parser.isoparse(v.replace('/', '-')).replace(
+            tzinfo=datetime.timezone.utc)),
         'callsign': (lambda v: v.strip() if v != '' else None),
         'altitude': (lambda v: int(v)),
         'speed': (lambda v: int(v)),
