@@ -21,6 +21,7 @@ def main():
             current_flights.update(msg)
     except KeyboardInterrupt:
         log.info("Shutting down ADSb logging service")
+        session.close()
 
 
 if __name__ == "__main__":
