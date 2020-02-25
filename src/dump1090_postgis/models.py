@@ -246,8 +246,6 @@ class Flight(Base):
         if self._ground_change_detected or current_position.id is None:
             return
         else:
-            print("identify_onground_change for : {}".format(current_position))
-
             try:
                 previous_position = self.positions[-2]
             except IndexError as err:
@@ -256,8 +254,10 @@ class Flight(Base):
                 return
 
             if current_position.onground and not previous_position.onground:
+                self._ground_change_detected = True
                 self._broadcast_landing(current_position)
             elif not current_position.onground and previous_position.onground:
+                self._ground_change_detected = True
                 self._broadcast_takeoff(current_position)
             else:
                 return
