@@ -212,8 +212,8 @@ class Flight(Base):
                                            onground=adsb.onground)
                                   )
             session.flush()
-            self.classify_intention()
             self.identify_onground_change()
+            self.classify_intention()
 
         return self
 
@@ -227,7 +227,6 @@ class Flight(Base):
 
     def _broadcast_landing(self, position):
         """Call the callback of landing subscribers."""
-        print("Broadcasting!")
         for subscriber in self._on_landing_subscribers:
             subscriber(position, self)
 

@@ -7,7 +7,6 @@ from sqlalchemy.orm.session import Session
 from dump1090_postgis import models
 from dump1090_postgis import adsb_parser
 from dump1090_postgis.airports import nte_airport
-from dump1090_postgis.models import Position, Landings, Takeoffs
 
 log = logging.getLogger(__name__)
 
@@ -141,18 +140,19 @@ class LandingAndTakeoffManager:
     def __init__(self, session):
         self.__session = session
 
-    def _callback(self, position, flight, event_type):
-        assert isinstance(position, Position)
+    def _callback(self, position: models.Position, flight: models.Flight, event_type):
+        assert isinstance(position, models.Position)
         assert isinstance(flight, models.Flight)
-        assert issubclass(event_type, (Landings, Takeoffs))
+        assert issubclass(event_type, (models.Landings, models.Takeoffs))
 
         for airport in LandingAndTakeoffManager._airports:
             runway = airport.get_runway(position.point, flight.interpolated_track)
             if runway:
                 self.__session.add(event_type(flight, position, runway))
                 log.info("{}: Flight {} just {} on runway {}!".format(position.time,
-                                                                      flight.id,
-                                                                  'landed' if issubclass(event_type, Landings) else
+                                                                      flight.hexident,
+                                                                  'landed' if issubclass(event_type, models.Landings)
+                                                                      else
                                                                   'took off',
                                                                   runway.name)
                          )
@@ -160,10 +160,10 @@ class LandingAndTakeoffManager:
                 break
 
     def on_landing_callback(self, position, flight):
-        self._callback(position, flight, Landings)
+        self._callback(position, flight, models.Landings)
 
     def on_takeoff_callback(self, position, flight):
-        self._callback(position, flight, Takeoffs)
+        self._callback(position, flight, models.Takeoffs)
 
 
 if __name__ == '__main__':
