@@ -18,9 +18,7 @@ import datetime
 from config import DUMP1090_HOST, DUMP1090_PORT
 from time import sleep
 
-# The host on which dump1090 is running
 dump1090_host = DUMP1090_HOST
-# Standard Dump1090 port streaming in Base Station format
 dump1090_port = DUMP1090_PORT
 
 log = logging.getLogger(__name__)
@@ -37,53 +35,45 @@ class MessageStream(abc.ABC):
     RECONNECTIONS = 5
 
     def __init__(self):
-        try:
-            self._message_iterator = self._initiate_stream()
-        except ConnectionError as err:
-            raise ConnectionError("Cannot initiate message stream: {}".format(str(err)))
+        pass
 
     def __iter__(self) -> string:
         """
-        Checks for correct length (22 comma-separated elements) and yields a new ADSB message sting.
+        Connects to message source and yields new ADSB message strings.
 
-        The iterator is created before by calling _initiate_stream().
+        Checks message string for correct length (22 comma-separated elements) before yielding.
+
+        The connection is tried indefinitely many times by calling _initiate_stream().
         If the connection should be lost (a self.exception is raised),
         a reconnect attempt is performed by calling _initiate_stream().
         If this attempt succeeds, the yielding is continued; if it failed,
         the iterator stops.
         :return: ADSB message string
         """
-        while True:
-            try:
-                for msg in self._message_iterator:
-                    msg_length = len(msg.split(","))
-                    if msg_length == 22:
-                        yield msg.strip()
-                    else:
-                        log.error("Received wrong message length ({}/22). Skipping message '{}'".format(msg_length, msg))
-                        continue
-            except self.exception:
-                try:
-                    self._message_iterator = self._initiate_stream()
-                    continue
-                except ConnectionError as err:
-                    log.critical("Connection to socket lost permanently:{}".format(str(err)))
-                    break
 
-        self._on_close()
+        # Loop to try socket reconnections
+        while True:
+            with self._initiate_stream() as _message_iterator:
+                try:
+                    for msg in _message_iterator:
+                        if AdsbMessage.length_ok(msg):
+                            yield msg.strip()
+                        else:
+                            # If a wrong message length is received, most likely the socket is dead already.
+                            # Best bet is to close it and to try to reconnect
+                            log.error("Received wrong message length. Reconnecting to message source!")
+                            continue
+                except self.exception:
+                    try:
+                        self._message_iterator = self._initiate_stream()
+                    except ConnectionError as err:
+                        log.critical("Connection to socket lost permanently:{}".format(str(err)))
+                        break
 
     @property
     @abc.abstractmethod
     def exception(self):
         """Defines the exception raised if socket connection is lost. """
-
-    @abc.abstractmethod
-    def _on_close(self):
-        """
-        Called when the stream is exhausted.
-        @todo: Reformat into a context manager
-        _message_iterator can be operated on, eg to close a socket or file.
-        """
 
     @abc.abstractmethod
     def _initiate_stream(self) -> iter:
@@ -110,7 +100,7 @@ class Dump1090Socket(MessageStream):
     :return: Generator for message strings, yields one full message at a time
     """
 
-    SOCKET_TIMEOUT = 1.0
+    SOCKET_TIMEOUT = 5.0
 
     def __init__(self, hostname: string = dump1090_host, port: int = dump1090_port):
         self.port = port
@@ -120,15 +110,17 @@ class Dump1090Socket(MessageStream):
     def _initiate_stream(self):
         """
         Returns generator for ADSB message strings received from port on hostname.
+
         Tries to connect RECONNECTIONS times, raises ConnectionError if all attempts fail.
         :return: Generator for message strings
         """
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(self.SOCKET_TIMEOUT)
-
         log.info("Connecting to Dump1090 source on {}:{}".format(self.hostname, self.port))
+
         for attempt in range(self.RECONNECTIONS):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(self.SOCKET_TIMEOUT)
+
             try:
                 sock.connect((self.hostname, int(self.port)))
                 return sock.makefile()
@@ -140,7 +132,8 @@ class Dump1090Socket(MessageStream):
                                                                                             error=str(err)
                                                                                                     )
                           )
-                sleep(1)
+                sock.close()
+                sleep(1)  # Give the system time to close the socket
                 continue
 
         log.critical("Port {}:{} unreachable".format(self.hostname, int(self.port)))
@@ -149,9 +142,6 @@ class Dump1090Socket(MessageStream):
     @property
     def exception(self):
         return socket.error
-
-    def _on_close(self):
-        self._message_iterator.close()
 
 
 class FileSource(MessageStream):
@@ -164,14 +154,11 @@ class FileSource(MessageStream):
         try:
             return open(self._file_path, 'r')
         except FileNotFoundError as err:
-            raise ConnectionError("Cannot read file: {}".format(str(err)))
+            raise ConnectionError("File {} was not found: {}".format(self._file_path, str(err)))
 
     @property
     def exception(self):
         return IOError
-
-    def _on_close(self):
-        self._message_iterator.close()
 
 
 class AdsbMessage:
@@ -293,6 +280,11 @@ class AdsbMessage:
         for msg in self.__message_stream:
             self.__update_attributes(self.__normalize_msg(msg))
             yield self
+
+    @staticmethod
+    def length_ok(message):
+        """Return True if message consists of 22 comma-separated elements."""
+        return len(message.split(",")) == 22
 
 
 class AdsbMessageFilter:
