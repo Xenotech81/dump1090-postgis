@@ -5,7 +5,7 @@ import string
 import time
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Float, String, TIMESTAMP, BOOLEAN, ForeignKey, BigInteger, Enum
+from sqlalchemy import types, Column, Integer, Float, String, TIMESTAMP, BOOLEAN, ForeignKey, BigInteger, Enum
 from sqlalchemy.orm import relationship, backref
 from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
@@ -94,9 +94,9 @@ class Flight(Base):
     hexident = Column(String(6), nullable=False)
     callsign = Column(String(7))
     # gen_date_time timestamp of the first ADSb message of this hexiden processed
-    first_seen = Column(TIMESTAMP, nullable=False)
+    first_seen = Column(types.DateTime(timezone=True), nullable=False)
     # gen_date_time timestamp of (any) last ADSb message of this hexident
-    last_seen = Column(TIMESTAMP)
+    last_seen = Column(types.DateTime(timezone=True))
     # https://gis.stackexchange.com/questions/4467/how-to-handle-time-in-gis
     # flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
     intention = Column(Enum(Intention), default=Intention.unknown)
