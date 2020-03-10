@@ -241,9 +241,9 @@ class AdsbMessage:
         :param msg: ADSB message string
         :return: Dict of fields of the message string cast to Python data types; Or empty dict if casting failed
         """
-        log.debug("Normalizing: {}".format(msg))
+        log.debug("Normalizing message: {}".format(msg))
 
-        log.debug("Matching fields...")
+        log.debug("Matching fields")
         match = self.__re_msg.match(msg)
         if match is not None:
             msg_dict = match.groupdict()
@@ -251,16 +251,16 @@ class AdsbMessage:
             log.error("Could not identify all fields in '{}'. Skipping message.".format(msg))
             return {}
 
-        log.debug("Casting to data types...")
+        log.debug("Casting to data types")
         for field, fnc in self.NORMALIZE_MSG.items():
             if field in msg_dict:
                 try:
                     msg_dict[field] = fnc(msg_dict[field])
                 except ValueError as err:
-                    log.debug("Could not cast {}: {}".format(field, str(err)))
                     msg_dict[field] = None
             else:
                 log.warning("Field {} not found".format(field))
+
         return msg_dict
 
     def __update_attributes(self, attributes: dict):

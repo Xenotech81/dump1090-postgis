@@ -201,7 +201,7 @@ class Flight(Base):
                 self.classify_intention()
 
             else:
-                log.warning("Cannot update position as MSG3 did not include lon/lat: {}".format(str(adsb)))
+                log.debug("Cannot update position as MSG3 did not include lon/lat: {}".format(str(adsb)))
         # First MSG2 of aircraft at terminal does not contain coordinates, only 'onground'
         # Also, the altitude is not included in MSG2, and is being set here to GND_ALTITUDE (0m AGL)
         elif adsb.transmission_type == 2 and adsb.longitude is not None and adsb.latitude is not None:
