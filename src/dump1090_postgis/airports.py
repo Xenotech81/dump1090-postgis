@@ -49,15 +49,16 @@ class Runway:
 
         return self.boundingbox.contains(point)
 
-    def same_heading(self, heading: object, direction_tol: float = 20.0):
-        """Return True if heading coincides with the runway direction, otherwise False.
+    def same_heading(self, heading: float, direction_tol: float = 20.0):
+        """Return True if heading coincides (within bounds) with the runway direction, otherwise False.
 
         :param heading: Aircraft heading
         :type heading: float
-        :param direction_tol: is the maximum permitted difference between the aircraft heading
-        and the runway direction to return a positive match.
+        :param direction_tol: The maximum permitted difference between the aircraft heading
+        and the runway direction to return a positive.
         :type direction_tol: float
         """
+
         log.debug("Testing aircraft heading {:.1f} relative to runway direction {}".format(heading, self.direction))
         if abs(self.direction - heading) <= direction_tol:
             log.debug("Aircraft heading and runway direction coincide")
