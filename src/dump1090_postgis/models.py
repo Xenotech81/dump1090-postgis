@@ -102,7 +102,10 @@ class Flight(Base):
     intention = Column(Enum(Intention), default=Intention.unknown)
 
     #https://stackoverflow.com/questions/5033547/sqlalchemy-cascade-delete
-    positions: Position = relationship('Position', backref=backref('flight', lazy=True), passive_deletes=True)
+    positions: Position = relationship('Position',
+                                       backref=backref('flight', lazy=True),
+                                       passive_deletes=True,
+                                       order_by="asc(Position.id)")
 
     def __init__(self, hexident: string):
         self.hexident = hexident
@@ -273,7 +276,7 @@ class Flight(Base):
         """
 
         # Altitude difference [meter] between first_ and last_seen time to classify the flight as arrival
-        ALT_DIFF_FOR_ARRIVAL = -100
+        ALT_DIFF_FOR_ARRIVAL = -300
 
         # Classification as departure flight is quite reliable (first_seen position was 'onground')
         # In this case, the classification can be kept and all other checks skipped
