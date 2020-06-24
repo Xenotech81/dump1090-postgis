@@ -90,8 +90,8 @@ class Flight(Base):
     # https://gis.stackexchange.com/questions/4467/how-to-handle-time-in-gis
     # flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
     intention = Column(Enum(Intention), default=Intention.unknown)
-    landed = Column(TIMESTAMP)
-    takeoff = Column(TIMESTAMP)
+    landed = Column(TIMESTAMP)  # This is obsolete
+    takeoff = Column(TIMESTAMP)  # This is obsolete
 
     positions: Position = relationship('Position', backref=backref('flight', lazy=True))
 

@@ -17,7 +17,10 @@ def deg2angle(deg):
 
 
 def angle2geg(deg):
-    """Transforms mathematical angle in a x-y plane to wind direction in degrees [0...360]."""
+    """Transforms mathematical angle to wind direction in degrees [0...360].
+
+    ATTENTION: Wind direction and compass direction are in opposite directions!
+    """
     angle = 270.0 - deg
     if angle > 360:
         return angle - 360
@@ -33,7 +36,12 @@ def angle2deg(angle):
 def interpolate_track(positions: iter, poly_order: int = 1):
     """Compute flight heading from a list of points by least squares polynomial fit.
 
-    :param positions: Positinons to interpolate the track from
+    Positions is a list of 2 or more Points, sorted in ascending order
+    (chronologically along the flight path).
+
+    NOTE: For now no track is interpolated, just a local heading from the first two points in the list of points.
+
+    :param positions: List of Points to interpolate the heading from
     :type positions: list of shapely.geometry.Point
     """
 
@@ -41,4 +49,4 @@ def interpolate_track(positions: iter, poly_order: int = 1):
     rad = np.arctan2(np.diff(points[..., 1]), np.diff(points[..., 0]))
     angle = np.rad2deg(rad)
 
-    return angle2geg(angle[0])
+    return angle2deg(angle[0])  # Return heading only for the first two points in list

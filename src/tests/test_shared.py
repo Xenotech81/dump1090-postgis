@@ -20,9 +20,11 @@ class TestFunctions(unittest.TestCase):
         self.assertAlmostEqual(angle2geg(-89), 359, 3)
 
     def test_interpolate_track(self):
-        self.assertAlmostEqual(interpolate_track([Point(0, 0), Point(-1, 0)]), 90, 3)  # East wind
-        self.assertAlmostEqual(interpolate_track([Point(0, 0), Point(0, 1)]), 180, 3)  # South wind
-        self.assertAlmostEqual(interpolate_track([Point(0, 0), Point(-1, -1)]), 45, 3)  # Northest wind
+        self.assertAlmostEqual(interpolate_track([Point(0, 0), Point(-1, 0)]), 270, 3)  # Heading west
+        self.assertAlmostEqual(interpolate_track([Point(0, 0), Point(0, 1)]), 0, 3)  # Heading north
+        self.assertAlmostEqual(interpolate_track([Point(0, 0), Point(1, -1)]), 135, 3)  # Heading southeast
+        self.assertAlmostEqual(interpolate_track([Point(0, 0), Point(-1, 1)]), 315, 3)  # Heading northwest
+
 
 if __name__ == '__main__':
     unittest.main()
