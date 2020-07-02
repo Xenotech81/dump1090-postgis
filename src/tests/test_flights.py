@@ -1,11 +1,13 @@
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, MagicMock
 import sqlalchemy.orm
 
+from dump1090_postgis.airports import Airport, _nte_runway_21
 from tests import msg3_valid
 from tests.test_adsb_parser import AdsbMessageStub
+from tests.test_models import position_config_0
 
-
+@unittest.skip("")
 class TestCurrentFlights(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -54,6 +56,38 @@ class TestCurrentFlights(unittest.TestCase):
             self.current_flights.update(msg)
             self.assertTrue(msg.hexident in self.current_flights._flights.keys())
             self.assertTrue(self.current_flights.prune.called_once())
+
+
+class TestLandingAndTakeoffManager(unittest.TestCase):
+
+    def setUp(self) -> None:
+        with patch('os.environ', return_value="ENV_VAR"):
+            from dump1090_postgis.models import Flight, Position
+            from dump1090_postgis.flights import LandingAndTakeoffManager
+            from dump1090_postgis.models import Landings, Takeoffs
+
+        self.Landings = Landings
+        self.Takeoffs = Takeoffs
+
+        self.flight_mock = Mock(spec=Flight, hexident='hex1')
+
+        self.position_mock = Mock(spec=Position)
+        self.position_mock.configure_mock(**position_config_0)
+
+        self.session_mock = Mock()
+        self.session_mock.add = Mock()
+        self.session_mock.commit = Mock()
+
+        self.airport_mock = Mock(spec=Airport)
+        self.airport_mock.get_runway.return_value = _nte_runway_21
+
+        LandingAndTakeoffManager._airports = [self.airport_mock]
+        self.lt_manager = LandingAndTakeoffManager(self.session_mock)
+
+    def test_callback(self):
+        self.lt_manager._callback(self.position_mock, self.flight_mock, self.Landings)
+        self.assertTrue(self.lt_manager._LandingAndTakeoffManager__session.add.called)
+        self.assertTrue(self.lt_manager._LandingAndTakeoffManager__session.commit.called)
 
 
 if __name__ == '__main__':

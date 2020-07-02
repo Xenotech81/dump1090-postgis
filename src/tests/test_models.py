@@ -4,20 +4,22 @@ from unittest.mock import patch, Mock
 import shapely.geometry
 
 position_config_0 = {
-    "id": 0,
+    "id": 1000,
     "flight_id": 1,
     "time": datetime.datetime.fromtimestamp(0),
     "coordinates": shapely.geometry.point.Point((0, 0)),
+    "point": shapely.geometry.point.Point((0, 0)),
     "verticalrate": 0.0,
     "track": None,
     "onground": False
     }
 
 position_config_1 = {
-    "id": 1,
+    "id": 2000,
     "flight_id": 1,
     "time": datetime.datetime.fromtimestamp(1),
     "coordinates": shapely.geometry.point.Point((1, 1)),
+    "point": shapely.geometry.point.Point((1, 1)),
     "verticalrate": 0.0,
     "track": None,
     "onground": True

@@ -5,7 +5,7 @@ import string
 import time
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Float, String, TIMESTAMP, BOOLEAN, ForeignKey, BigInteger, Enum
+from sqlalchemy import types, Column, Integer, Float, String, TIMESTAMP, BOOLEAN, ForeignKey, BigInteger, Enum
 from sqlalchemy.orm import relationship, backref
 from geoalchemy2 import Geometry
 # https://geoalchemy-2.readthedocs.io/en/latest/shape.html
@@ -13,6 +13,7 @@ from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import Point
 from shapely import speedups
 
+from dbmanager import session
 from dump1090_postgis import adsb_parser
 from dump1090_postgis.airports import Runway
 from dump1090_postgis.shared import feet2m, interpolate_track
@@ -51,12 +52,21 @@ class Intention(enum.Enum):
 class Position(Base):
     __tablename__ = 'positions'
     id = Column(BigInteger, primary_key=True)
-    flight_id = Column(Integer, ForeignKey('flights.id'))
+    flight_id = Column(Integer, ForeignKey('flights.id', ondelete='CASCADE'))
     time = Column(TIMESTAMP, nullable=False)
     coordinates = Column(Geometry('POINTZ', srid=SRID, dimension=3))
-    verticalrate = Column(Float)
-    track = Column(Float)
+    verticalrate = Column(Integer)
+    track = Column(Integer)
     onground = Column(BOOLEAN, default=False)
+
+    def __str__(self):
+        return "Position {id} of flight {flight_id} at {time}: {coordinates} (onground={onground})".format(
+            id=self.id,
+            flight_id = self.flight_id,
+            time = self.time,
+            coordinates = to_shape(self.coordinates).coords[:],
+            onground = self.onground
+            )
 
     @property
     def lon(self):
@@ -84,16 +94,18 @@ class Flight(Base):
     hexident = Column(String(6), nullable=False)
     callsign = Column(String(7))
     # gen_date_time timestamp of the first ADSb message of this hexiden processed
-    first_seen = Column(TIMESTAMP, nullable=False)
+    first_seen = Column(types.DateTime(timezone=True), nullable=False)
     # gen_date_time timestamp of (any) last ADSb message of this hexident
-    last_seen = Column(TIMESTAMP)
+    last_seen = Column(types.DateTime(timezone=True))
     # https://gis.stackexchange.com/questions/4467/how-to-handle-time-in-gis
     # flightpath = Column(Geometry('LINESTRINGZ', srid=SRID, dimension=3))
     intention = Column(Enum(Intention), default=Intention.unknown)
-    landed = Column(TIMESTAMP)  # This is obsolete
-    takeoff = Column(TIMESTAMP)  # This is obsolete
 
-    positions: Position = relationship('Position', backref=backref('flight', lazy=True))
+    #https://stackoverflow.com/questions/5033547/sqlalchemy-cascade-delete
+    positions: Position = relationship('Position',
+                                       backref=backref('flight', lazy=True),
+                                       passive_deletes=True,
+                                       order_by="asc(Position.id)")
 
     def __init__(self, hexident: string):
         self.hexident = hexident
@@ -102,8 +114,10 @@ class Flight(Base):
         self.__times = []
         self._transmission_type_count = dict.fromkeys(range(1, 9, 1), 0)
 
-        self._on_langing_subscribers = []
+        self._on_landing_subscribers = []
         self._on_takeoff_subscribers = []
+
+        self._ground_change_detected = False
 
     def __str__(self):
         return "Flight {hexident}: last seen: {last_seen}".format(**self.__dict__)
@@ -114,13 +128,13 @@ class Flight(Base):
         Computes the age in seconds since last seen.
         :return: Age in seconds since last seen
         """
-        return datetime.datetime.utcnow() - self.last_seen
+        return datetime.datetime.now(datetime.timezone.utc) - self.last_seen
 
     @property
     def interpolated_track(self):
         """Compute flight heading from last known 2 positions."""
         if len(self.positions) >= 2:
-            return interpolate_track([p for p in self.positions[-1:-2].reverse()])
+            return interpolate_track(self.positions[-2:])
         else:
             return None
 
@@ -179,15 +193,18 @@ class Flight(Base):
         if adsb.transmission_type == 3:
             if adsb.longitude is not None and adsb.latitude is not None and adsb.altitude is not None:
                 # self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
-                self.positions.append(Position(time=adsb.gen_date_time,
+                position = Position(time=adsb.gen_date_time,
                                                coordinates=from_shape(
                                                    Point(adsb.longitude, adsb.latitude, feet2m(adsb.altitude)),
                                                    srid=SRID),
                                                onground=adsb.onground)
-                                      )
+                self.positions.append(position)
+                session.flush()
+                self.identify_onground_change()
                 self.classify_intention()
+
             else:
-                log.warning("Cannot update position as MSG3 did not include lon/lat: {}".format(str(adsb)))
+                log.debug("Cannot update position as MSG3 did not include lon/lat: {}".format(str(adsb)))
         # First MSG2 of aircraft at terminal does not contain coordinates, only 'onground'
         # Also, the altitude is not included in MSG2, and is being set here to GND_ALTITUDE (0m AGL)
         elif adsb.transmission_type == 2 and adsb.longitude is not None and adsb.latitude is not None:
@@ -197,13 +214,15 @@ class Flight(Base):
                                                                   srid=SRID),
                                            onground=adsb.onground)
                                   )
+            session.flush()
+            self.identify_onground_change()
             self.classify_intention()
 
         return self
 
     def register_on_landing(self, subscriber):
         """Register an on-landing subscriber."""
-        self._on_langing_subscribers.append(subscriber)
+        self._on_landing_subscribers.append(subscriber)
 
     def register_on_takeoff(self, subscriber):
         """Register an on-takeoff subscriber."""
@@ -219,28 +238,31 @@ class Flight(Base):
         for subscriber in self._on_takeoff_subscribers:
             subscriber(position, self)
 
-    def identify_onground_change(self, current_position):
-        """Identify takeoff or landing event and emit message to subscribers.
+    def identify_onground_change(self):
+        """Identify takeoff or landing event and emit message to subscribers."""
 
-        :param current_position: The current (latest) aircraft position
-        :type current_position: Position
-        """
+        current_position = self.positions[-1]
 
-        try:
-            previous_position = self.positions[current_position.id - 1]
-        except (IndexError, KeyError):
-            log.warning("No previous position found for flight {} and position id {}".format(
-                current_position.flight_id, current_position.id))
+        # Skip all checks if takeoff or landing was previously detected for this flight to save CPU.
+        # Also the very first position of a session does not have an id yet.
+        if self._ground_change_detected or current_position.id is None:
             return
-
-        if current_position.onground and not previous_position.onground:
-            self.landed = current_position.time
-            self._broadcast_landing(current_position)
-        elif not current_position.onground and previous_position.onground:
-            self.takeoff = current_position.time
-            self._broadcast_takeoff(current_position)
         else:
-            return
+            try:
+                previous_position = self.positions[-2]
+            except IndexError as err:
+                log.warning("No previous position found for flight {} and position id {}".format(
+                    current_position.flight_id, current_position.id, str(err)))
+                return
+
+            if current_position.onground and not previous_position.onground:
+                self._ground_change_detected = True
+                self._broadcast_landing(current_position)
+            elif not current_position.onground and previous_position.onground:
+                self._ground_change_detected = True
+                self._broadcast_takeoff(current_position)
+            else:
+                return
 
     def classify_intention(self):
         """Updates the intention (arrival, departure, enroute) guessed from the shape of flight path.
@@ -254,7 +276,7 @@ class Flight(Base):
         """
 
         # Altitude difference [meter] between first_ and last_seen time to classify the flight as arrival
-        ALT_DIFF_FOR_ARRIVAL = -100
+        ALT_DIFF_FOR_ARRIVAL = -300
 
         # Classification as departure flight is quite reliable (first_seen position was 'onground')
         # In this case, the classification can be kept and all other checks skipped

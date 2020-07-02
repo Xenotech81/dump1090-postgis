@@ -8,8 +8,7 @@ from sqlalchemy_utils import database_exists, create_database, drop_database
 from sqlalchemy.exc import DBAPIError  # SQLAlchemyError
 from config import DB_URL, POSTGRES_DB
 
-import src.dump1090_postgis.models
-from dump1090_postgis import models
+
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -57,12 +56,17 @@ def resetdb_command():
 
 
 @cli.command()
-def createtables():
+def create_tables():
     """Creates all tables if not existent"""
+    from dump1090_postgis import models
 
     print('Creating tables.')
-    src.dump1090_postgis.models.Base.metadata.create_all(engine)
-    print('done')
+    try:
+        models.Base.metadata.create_all(engine)
+        print('done')
+    except DBAPIError as err:
+        log.warning("Cannot create tables: %s", str(err))
+
 
 
 @cli.command()
@@ -71,7 +75,7 @@ def create_flight_table():
     Recreates flights table in DB.
     L(https://docs.sqlalchemy.org/en/13/core/exceptions.html)
     """
-    from dbmanager import engine
+    from dump1090_postgis import models
 
     if database_exists(DB_URL):
         try:
@@ -89,8 +93,6 @@ def delete_flight_table():
     Deletes flights table in DB.
     L(https://docs.sqlalchemy.org/en/13/core/exceptions.html)
     """
-    from dbmanager import engine
-
     if database_exists(DB_URL):
         try:
             models.Position.__table__.drop(engine)
