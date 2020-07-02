@@ -105,7 +105,7 @@ class Flight(Base):
     positions: Position = relationship('Position',
                                        backref=backref('flight', lazy=True),
                                        passive_deletes=True,
-                                       order_by="asc(Position.id)")
+                                       order_by="asc(Position.time)")
 
     def __init__(self, hexident: string):
         self.hexident = hexident
