@@ -306,7 +306,13 @@ class Landings(Base):
     def __init__(self, flight: Flight, position: Position, runway: Runway):
         self.flight_id = flight.id
         self.time = position.time
-        self.runway = runway.name
+        if runway:
+            self.runway = runway.name
+        else:
+            self.runway = 'UNK'
+
+    def __str__(self):
+        return "Landing for FlightID {}: Runway {} at {}".format(self.flight_id, self.runway, self.time)
 
 
 class Takeoffs(Base):
@@ -319,7 +325,13 @@ class Takeoffs(Base):
     def __init__(self, flight: Flight, position: Position, runway: Runway):
         self.flight_id = flight.id
         self.time = position.time
-        self.runway = runway.name
+        if runway:
+            self.runway = runway.name
+        else:
+            self.runway = 'UNK'
+
+    def __str__(self):
+        return "Takeoff for FlightID {}: Runway {} at {}".format(self.flight_id, self.runway, self.time)
 
 
 if __name__ == '__main__':
