@@ -38,12 +38,11 @@ class Runway:
         self.boundingbox = shapely.geometry.Polygon(bbox)
         self.length = length
 
-    def point_in(self, point):
-        """Return True if point lies within the runway bounding box, otherwise False.
+    def __str__(self):
+        return self.name
 
-        :param point: The point geometry to test for
-        :type point: shapely.geometry.point.Point
-        """
+    def point_in(self, point: shapely.geometry.point.Point):
+        """Return True if point lies within the runway bounding box, otherwise False."""
         assert isinstance(point, shapely.geometry.point.Point)
         log.debug("Testing point_in for runway {}: {} ".format(self.name, self.boundingbox.contains(point)))
 
@@ -81,8 +80,21 @@ class Airport:
         self.boundingbox = shapely.geometry.Polygon(bbox)
         self.runways = runways
 
+    def point_in(self, point: shapely.geometry.point.Point):
+        """Return True if point lies within the airport bounding box, otherwise False."""
+        assert isinstance(point, shapely.geometry.point.Point)
+        log.debug("Testing point_in for airport {}: {} ".format(self.name_icao, self.boundingbox.contains(point)))
+
+        return self.boundingbox.contains(point)
+
     def get_runway(self, point: shapely.geometry.point.Point, heading: float) -> Runway:
         """Check if touchdown/takeoff point and heading fit any known runway.
+
+        As an fallback option, the touchdown/takeoff point is also matched against the airport bounding box,
+        if it does not match any runways. This happens when the aircraft GPS position is off, and the aircraft
+        seems to land besides the runway, but usually still within the airport area.
+
+        NOTE: The fallback option will give a mess for parallel runways, e.g. 30R and 30L
 
         :param point: Coordinates of the point of take off or landing.
         :type point: shapely.geometry.point.Point
@@ -93,10 +105,19 @@ class Airport:
 
         assert isinstance(point, shapely.geometry.point.Point)
 
+        # Compare against runways
         for runway in self.runways:
             log.debug("Testing for runway '{}'".format(runway.name))
             if runway.point_in(point) and runway.same_heading(heading):
                 log.debug("Runway match!")
+                return runway
+            else:
+                continue
+
+        # Fallback: Compare against airport bounding box and runway direction
+        for runway in self.runways:
+            if self.point_in(point) and runway.same_heading(heading):
+                log.warning("Landing outside of runway detected for runway {}".format(runway.name))
                 return runway
             else:
                 continue
