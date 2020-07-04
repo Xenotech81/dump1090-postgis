@@ -7,27 +7,7 @@ from dump1090_postgis.adsb_parser import AdsbMessageFilter, AdsbMessage, Dump109
 from dump1090_postgis.flights import CurrentFlights
 
 
-# https://stackoverflow.com/questions/8162419/python-logging-specific-level-only
-class LevelOnlyFilter:
-    def __init__(self, level):
-        self.__level = level
-
-    def filter(self, record):
-        return record.levelno <= self.__level
-
-
-STDOUT_LEVEL = logging.INFO
-
 log = logging.getLogger()
-
-stdout = logging.StreamHandler(sys.stdout)
-stdout.setLevel(STDOUT_LEVEL)
-stdout.addFilter(LevelOnlyFilter(STDOUT_LEVEL))
-stderr = logging.StreamHandler(sys.stderr)
-stderr.setLevel(logging.ERROR)
-
-log.addHandler(stdout)
-log.addHandler(stderr)
 
 
 def handle_sigterm():
@@ -53,8 +33,9 @@ def main():
         for msg in AdsbMessage(message_source):
             current_flights.update(msg)
     except KeyboardInterrupt:
-        log.info("Shutting down ADSb logging service")
+        log.info("Shutting down ADSb logging service and closing database connection")
         session.close()
+        log.info(">>> Goodbye <<<")
 
 
 if __name__ == "__main__":
