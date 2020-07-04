@@ -53,8 +53,8 @@ class MessageStream(abc.ABC):
 
         # Loop to try socket reconnections
         while True:
-            with self._initiate_stream() as _message_iterator:
-                try:
+            try:
+                with self._initiate_stream() as _message_iterator:
                     for msg in _message_iterator:
                         if AdsbMessage.length_ok(msg):
                             yield msg.strip()
@@ -63,12 +63,11 @@ class MessageStream(abc.ABC):
                             # Best bet is to close it and to try to reconnect
                             log.error("Received wrong message length. Reconnecting to message source!")
                             continue
-                except self.exception:
-                    try:
-                        self._message_iterator = self._initiate_stream()
-                    except ConnectionError as err:
-                        log.critical("Connection to socket lost permanently:{}".format(str(err)))
-                        break
+            except self.exception as err:
+                log.error("Connection to socket failed: {}".format(str(err)))
+            except ConnectionError as err:
+                log.critical("Connection to socket lost permanently:{}".format(str(err)))
+                break
 
     @property
     @abc.abstractmethod
