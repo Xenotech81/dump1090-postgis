@@ -26,8 +26,10 @@ def get_db_session(_engine):
         exit(1)
 
     if database_exists(_engine.url):
-        Session = sessionmaker(bind=_engine)
-        return Session()
+        Session = sessionmaker(bind=_engine)  # Session maker instance
+        s = Session()  # Here a session is returned
+        s.expire_on_commit = False
+        return s
     else:
         raise ConnectionError("Database {} does not exist on URL {}".format(POSTGRES_DB, DB_URL))
 
