@@ -84,10 +84,8 @@ class CurrentFlights:
         if adsb_message.hexident in self._flights:
             self[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
-            self.__session.merge(self[adsb_message.hexident])
 
             self._commit_flights(period=self.DB_COMMIT_PERIOD)
-
             self.prune()
 
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
@@ -101,8 +99,8 @@ class CurrentFlights:
             self[adsb_message.hexident] = self[adsb_message.hexident].update(adsb_message)
 
             self.__session.add(self._flights[adsb_message.hexident])
-            self._commit_flights()
 
+            self._commit_flights()  # Immediate commit
             self.prune()
 
     def prune(self):

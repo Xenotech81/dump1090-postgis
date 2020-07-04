@@ -199,7 +199,6 @@ class Flight(Base):
                                                    srid=SRID),
                                                onground=adsb.onground)
                 self.positions.append(position)
-                session.flush()
                 self.identify_onground_change()
                 self.classify_intention()
 
@@ -214,7 +213,6 @@ class Flight(Base):
                                                                   srid=SRID),
                                            onground=adsb.onground)
                                   )
-            session.flush()
             self.identify_onground_change()
             self.classify_intention()
 

@@ -6,8 +6,28 @@ from dbmanager import session
 from dump1090_postgis.adsb_parser import AdsbMessageFilter, AdsbMessage, Dump1090Socket
 from dump1090_postgis.flights import CurrentFlights
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+
+# https://stackoverflow.com/questions/8162419/python-logging-specific-level-only
+class LevelOnlyFilter:
+    def __init__(self, level):
+        self.__level = level
+
+    def filter(self, record):
+        return record.levelno <= self.__level
+
+
+STDOUT_LEVEL = logging.INFO
+
+log = logging.getLogger()
+
+stdout = logging.StreamHandler(sys.stdout)
+stdout.setLevel(STDOUT_LEVEL)
+stdout.addFilter(LevelOnlyFilter(STDOUT_LEVEL))
+stderr = logging.StreamHandler(sys.stderr)
+stderr.setLevel(logging.ERROR)
+
+log.addHandler(stdout)
+log.addHandler(stderr)
 
 
 def handle_sigterm():
