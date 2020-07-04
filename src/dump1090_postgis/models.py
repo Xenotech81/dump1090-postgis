@@ -192,7 +192,6 @@ class Flight(Base):
         # ATTENTION: x: longitude (easting), y: latitude (northing)
         if adsb.transmission_type == 3:
             if adsb.longitude is not None and adsb.latitude is not None and adsb.altitude is not None:
-                # self._add_position(adsb.longitude, adsb.latitude, adsb.altitude, adsb.gen_date_time)
                 position = Position(time=adsb.gen_date_time,
                                                coordinates=from_shape(
                                                    Point(adsb.longitude, adsb.latitude, feet2m(adsb.altitude)),
@@ -207,7 +206,6 @@ class Flight(Base):
         # First MSG2 of aircraft at terminal does not contain coordinates, only 'onground'
         # Also, the altitude is not included in MSG2, and is being set here to GND_ALTITUDE (0m AGL)
         elif adsb.transmission_type == 2 and adsb.longitude is not None and adsb.latitude is not None:
-            # self._add_position(adsb.longitude, adsb.latitude, GND_ALTITUDE, adsb.gen_date_time)
             self.positions.append(Position(time=adsb.gen_date_time,
                                            coordinates=from_shape(Point(adsb.longitude, adsb.latitude, GND_ALTITUDE),
                                                                   srid=SRID),
@@ -239,28 +237,21 @@ class Flight(Base):
     def identify_onground_change(self):
         """Identify takeoff or landing event and emit message to subscribers."""
 
-        current_position = self.positions[-1]
-
-        # Skip all checks if takeoff or landing was previously detected for this flight to save CPU.
-        # Also the very first position of a session does not have an id yet.
-        if self._ground_change_detected or current_position.id is None:
+        # Skip all checks if takeoff or landing was already previously detected for this flight to save CPU.
+        if self._ground_change_detected:
+            return
+        # Skip if we are handling the first position
+        elif len(self.positions) <= 1:
             return
         else:
-            try:
-                previous_position = self.positions[-2]
-            except IndexError as err:
-                log.warning("No previous position found for flight {} and position id {}".format(
-                    current_position.flight_id, current_position.id, str(err)))
-                return
-
+            current_position = self.positions[-1]
+            previous_position = self.positions[-2]
             if current_position.onground and not previous_position.onground:
                 self._ground_change_detected = True
                 self._broadcast_landing(current_position)
             elif not current_position.onground and previous_position.onground:
                 self._ground_change_detected = True
                 self._broadcast_takeoff(current_position)
-            else:
-                return
 
     def classify_intention(self):
         """Updates the intention (arrival, departure, enroute) guessed from the shape of flight path.
