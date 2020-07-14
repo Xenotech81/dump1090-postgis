@@ -288,7 +288,7 @@ class Flight(Base):
 class Landings(Base):
     __tablename__ = 'landings'
     id = Column(Integer, primary_key=True)
-    flight_id = Column(Integer, ForeignKey('flights.id'))
+    flight_id = Column(Integer, ForeignKey('flights.id', ondelete='CASCADE'))
     time = Column(TIMESTAMP, nullable=False)
     runway = Column(String(3), nullable=False)
 
@@ -307,7 +307,7 @@ class Landings(Base):
 class Takeoffs(Base):
     __tablename__ = 'takeoffs'
     id = Column(Integer, primary_key=True)
-    flight_id = Column(Integer, ForeignKey('flights.id'))
+    flight_id = Column(Integer, ForeignKey('flights.id', ondelete='CASCADE'))
     time = Column(TIMESTAMP, nullable=False)
     runway = Column(String(3), nullable=False)
 
