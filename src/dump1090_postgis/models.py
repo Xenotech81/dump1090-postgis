@@ -53,7 +53,7 @@ class Position(Base):
     __tablename__ = 'positions'
     id = Column(BigInteger, primary_key=True)
     flight_id = Column(Integer, ForeignKey('flights.id', ondelete='CASCADE'))
-    time = Column(TIMESTAMP, nullable=False)
+    time = Column(types.DateTime(timezone=True), nullable=False)
     coordinates = Column(Geometry('POINTZ', srid=SRID, dimension=3))
     verticalrate = Column(Integer)
     track = Column(Integer)
