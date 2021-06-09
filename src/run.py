@@ -90,7 +90,7 @@ def main():
     log.info(">>> WELCOME TO THE ADSB POSTGIS LOGGER <<<")
 
     handle_sigterm()
-    flights_pool = CurrentFlights(session=session, adsb_filter=AdsbMessageFilter(below=35000))
+    flights_pool = CurrentFlights(session=session, adsb_filter=AdsbMessageFilter(below=10000))
 
     adsb_logger = AdsbLogger(message_source=Dump1090Socket(), flights_pool=flights_pool)
 
