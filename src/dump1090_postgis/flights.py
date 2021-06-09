@@ -132,7 +132,7 @@ class CurrentFlights:
             self.__last_session_commit = _now
 
     def __repr__(self):
-        return "Current flight pool contains {} fights: \n{}".format(len(self), ', '.join(self.hexidents()))
+        return "Current flight pool contains {} fights: {}".format(len(self), ', '.join(self.hexidents()))
 
     def hexidents(self):
         return self._flights.keys()
