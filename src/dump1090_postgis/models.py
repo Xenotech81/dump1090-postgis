@@ -13,7 +13,7 @@ from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import Point
 from shapely import speedups
 
-from dbmanager import session
+from db import session
 from dump1090_postgis import adsb_parser
 from dump1090_postgis.airports import Runway
 from dump1090_postgis.shared import feet2m, interpolate_track
