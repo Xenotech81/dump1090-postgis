@@ -12,11 +12,7 @@ log = logging.getLogger(__name__)
 
 
 class CurrentFlights:
-    """
-    Pool of currently observed flights.
-
-    todo: Poll last_seen of flights and move old ones to PastFlights
-    """
+    """Pool of currently observed flights."""
 
     # Maximum age in seconds since last seen of a flight before it gets deleted from the pool
     MAX_AGE = 300
@@ -64,19 +60,25 @@ class CurrentFlights:
 
     def update(self, adsb_message: adsb_parser.AdsbMessage):
         """
-        Updates the flight pool from a ADSb message object and commits to Postgres.
+        Updates the flights pool from a ADSb message object and commits to Postgres.
 
+        Two cases are distinguished:
+
+        CASE A:
         If hexident is already known, the according Flight instance will get updated with the message contents and
-        merged into the current SQL session, if it passes all filters (e.g. altitude).
+        queued for commit to DB.
 
+        CASE B:
         If hexident is unknown, it will be added to the pool in one of the cases:
-            1. Transmission type is 2: Aircraft is on ground, only lat/lon is transmitted. No altitude filter
+            1. Transmission type equals 2: Aircraft is on ground, only lat/lon is transmitted. No altitude filter
             applicable.
-            2. Transmission type is 3 (=altitude is included in the message) AND altitude filter returns True
-        After adding the new hexident to the pool, the Flight instance is updated and added to the SQL session.
-        Finally, the session is commited to DB.
+            2. Transmission type equals 3 (=altitude is included in the message) AND altitude filter returns True.
 
-        In any case, the flight pool is 'pruned' = aged flights are removed
+        After adding the new hexident to the pool, the flight is registered on the 'landing_and_takeoff_manager' which
+        recognizes landing and takeoff events. Then, the Flight instance is updated with the ADSB message content, added
+        to the SQL session and the session is committed to the DB immediately.
+
+        In both cases, the flight pool is 'pruned' = aged flights are removed.
 
         :param adsb_message: Instance of adsb_parser.AdsbMessage
         """
@@ -93,6 +95,7 @@ class CurrentFlights:
             log.info("New flight spotted: {} Adding to current pool...".format(adsb_message.hexident))
             self[adsb_message.hexident] = models.Flight(adsb_message.hexident)
 
+            # Register the manager's callback methods as subscribers to this Flight instance
             self[adsb_message.hexident].register_on_landing(self._landing_and_takeoff_manager.on_landing_callback)
             self[adsb_message.hexident].register_on_takeoff(self._landing_and_takeoff_manager.on_takeoff_callback)
 
@@ -133,12 +136,35 @@ class CurrentFlights:
 
 
 class LandingAndTakeoffManager:
+    """Class providing callback methods which add Landing or Takeoff instances to SQL session.
+
+    Provide these callbacks as argument to models.Flight.register_on_landing().
+    """
     _airports = [nte_airport]
 
     def __init__(self, session):
+        """Construct by providing the current SQL session.
+
+        :param session: A DB connection instance.
+        :type session: sqlalchemy.orm.session.Session
+        """
         self.__session = session
 
     def _callback(self, position: models.Position, flight: models.Flight, event_type):
+        """Adds Landing or Takeoff instance to SQL session if touchdown or takoff event was identified.
+
+        If the airports.Airport.get_runway() method identifies a touchdown or takeoff from the flight's last
+        position and interpolated track, then this callback function will add a models.Landings or models.Takeoffs
+        instance to the SQL session.
+
+        :param position: Position for which the attribute models.Position.onground just switched from False to True (=landing) or inverse (takeoff)
+        :type position:   models.Position
+        :param flight: Flight instance to which the position belongs.
+        :type flight: models.Flight
+        :param event_type: Instance of Landing or Takeoff event
+        :type event_type: models.Landings or models.Takeoffs
+        """
+
         assert isinstance(position, models.Position)
         assert isinstance(flight, models.Flight)
         assert issubclass(event_type, (models.Landings, models.Takeoffs))
@@ -158,9 +184,11 @@ class LandingAndTakeoffManager:
                 break
 
     def on_landing_callback(self, position, flight):
+        """Adds a models.Landings instance to SQL session if the landing can be attributed to a runway."""
         self._callback(position, flight, models.Landings)
 
     def on_takeoff_callback(self, position, flight):
+        """Adds a models.Takeoff instance to SQL session if the takeoff can be attributed to a runway."""
         self._callback(position, flight, models.Takeoffs)
 
 
