@@ -123,6 +123,7 @@ class Dump1090Socket(MessageStream):
 
             try:
                 sock.connect((self.hostname, int(self.port)))
+                log.info("Connection successful")
                 return sock.makefile()
             except (socket.error, socket.timeout) as err:
                 log.error("Attempt {i}/{i_max} failed connecting to {host}:{port}: {error}.".format(i=attempt + 1,
