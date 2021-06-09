@@ -2,7 +2,7 @@ import logging
 import signal
 import sys
 
-from dbmanager import session
+from db import session
 from dump1090_postgis.adsb_parser import AdsbMessageFilter, AdsbMessage, Dump1090Socket
 from dump1090_postgis.flights import CurrentFlights
 
