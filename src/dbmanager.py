@@ -27,7 +27,12 @@ def get_db_session(_engine):
 
     if database_exists(_engine.url):
         Session = sessionmaker(bind=_engine)  # Session maker instance
-        s = Session()  # Here a session is returned
+        s = Session()
+        # IMPORTANT: "Expire on commit" must be set to False, to prevent querying
+        # the DB after every commit to update the local Python state!
+        # As the roundtrip costs time, the logger will not be able to keep up with
+        # follow-up messages from the flight feeder. Also, this causes unnecessary
+        # load on the DB.
         s.expire_on_commit = False
         return s
     else:
