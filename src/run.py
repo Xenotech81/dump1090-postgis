@@ -3,7 +3,8 @@ import signal
 import sys
 
 from db import session
-from dump1090_postgis.adsb_parser import AdsbMessageFilter, AdsbMessage, Dump1090Socket
+from dump1090_postgis.adsb_logger import AdsbLogger
+from dump1090_postgis.adsb_parser import AdsbMessageFilter, Dump1090Socket
 from dump1090_postgis.flights import CurrentFlights
 
 
@@ -24,16 +25,18 @@ def main():
 
     handle_sigterm()
 
-    current_flights = CurrentFlights(session=session, adsb_filter=AdsbMessageFilter(below=10000))
+    flights_pool = CurrentFlights(session=session, adsb_filter=AdsbMessageFilter(below=10000))
+    adsb_logger = AdsbLogger(message_source=Dump1090Socket(), flights_pool=flights_pool)
 
-    message_source = Dump1090Socket()
-
-    log.info("Start logging messages...")
     try:
-        for msg in AdsbMessage(message_source):
-            current_flights.update(msg)
+        log.info("Start logging messages...")
+        adsb_logger.log()
     except KeyboardInterrupt:
-        log.info("Shutting down ADSb logging service and closing database connection")
+        log.info("Termination signal received. Shutting down logger and closing database connection")
+        adsb_logger.shutdown()
+        log.info("Maximum queue size: {}".format(adsb_logger.qsize_max))
+        if len(flights_pool):
+            log.warning("Dropping {} flights from flight pool".format(len(flights_pool)))
         session.close()
         log.info(">>> Goodbye <<<")
 

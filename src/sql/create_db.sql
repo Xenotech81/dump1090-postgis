@@ -20,10 +20,6 @@ CREATE ROLE graphql WITH
 
 COMMENT ON ROLE graphql IS 'React frontend user with read-only rights';
 
--- Create PostGis extension before creating the actual database
-CREATE EXTENSION postgis;
-ALTER EXTENSION postgis UPDATE;
-
 --  Create the actual database and assign to dump1090 user
 CREATE DATABASE dump1090
     WITH
@@ -32,3 +28,9 @@ CREATE DATABASE dump1090
     CONNECTION LIMIT = 10;
 
 GRANT CREATE, CONNECT ON DATABASE dump1090 TO graphql;
+
+CREATE SCHEMA public;
+ALTER SCHEMA public OWNER TO dump1090;
+
+-- Create PostGis extension (in public schema by default)
+CREATE EXTENSION postgis;

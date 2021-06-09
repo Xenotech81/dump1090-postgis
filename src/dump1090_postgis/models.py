@@ -92,7 +92,7 @@ class Flight(Base):
     __tablename__ = 'flights'
     id = Column(Integer, primary_key=True)
     hexident = Column(String(6), nullable=False)
-    callsign = Column(String(7))
+    callsign = Column(String(10))
     # gen_date_time timestamp of the first ADSb message of this hexiden processed
     first_seen = Column(types.DateTime(timezone=True), nullable=False)
     # gen_date_time timestamp of (any) last ADSb message of this hexident
@@ -193,10 +193,10 @@ class Flight(Base):
         if adsb.transmission_type == 3:
             if adsb.longitude is not None and adsb.latitude is not None and adsb.altitude is not None:
                 position = Position(time=adsb.gen_date_time,
-                                               coordinates=from_shape(
-                                                   Point(adsb.longitude, adsb.latitude, feet2m(adsb.altitude)),
-                                                   srid=SRID),
-                                               onground=adsb.onground)
+                                    coordinates=from_shape(
+                                        Point(adsb.longitude, adsb.latitude, feet2m(adsb.altitude)),
+                                        srid=SRID),
+                                    onground=adsb.onground)
                 self.positions.append(position)
                 self.identify_onground_change()
                 self.classify_intention()

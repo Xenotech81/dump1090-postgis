@@ -44,7 +44,7 @@ class CurrentFlights:
         try:
             return self._flights[hexident]
         except KeyError:
-            log.error("Cannot find flight {} in current flights pool. Not on the radar...".format(hexident))
+            log.error("Trying to get Flight {} which does not exist in current flights pool.".format(hexident))
             return None
 
     def __setitem__(self, key, value):
@@ -56,7 +56,7 @@ class CurrentFlights:
             yield flight
 
     def __len__(self):
-        return len(self._flights)
+        return len(self._flights.values())
 
     def update(self, adsb_message: adsb_parser.AdsbMessage):
         """
@@ -83,7 +83,7 @@ class CurrentFlights:
         :param adsb_message: Instance of adsb_parser.AdsbMessage
         """
 
-        if adsb_message.hexident in self._flights:
+        if adsb_message.hexident in self._flights.keys():
             self[adsb_message.hexident].update(adsb_message)
             log.debug("Flight {} updated".format(adsb_message.hexident))
 
@@ -93,7 +93,10 @@ class CurrentFlights:
         elif adsb_message.transmission_type == 2 or (adsb_message.transmission_type == 3 and self._adsb_filter.altitude(
                 adsb_message)):
             log.info("New flight spotted: {} Adding to current pool...".format(adsb_message.hexident))
+
             self[adsb_message.hexident] = models.Flight(adsb_message.hexident)
+
+            log.info(self)  # Print pool contents for info
 
             # Register the manager's callback methods as subscribers to this Flight instance
             self[adsb_message.hexident].register_on_landing(self._landing_and_takeoff_manager.on_landing_callback)
@@ -129,7 +132,7 @@ class CurrentFlights:
             self.__last_session_commit = _now
 
     def __repr__(self):
-        return "Current flight pool contains {} fights: \n{}".format(len(self), '\n'.join(self.hexidents()))
+        return "Current flight pool contains {} fights: {}".format(len(self), ', '.join(self.hexidents()))
 
     def hexidents(self):
         return self._flights.keys()
