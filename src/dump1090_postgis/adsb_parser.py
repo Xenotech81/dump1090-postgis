@@ -9,6 +9,7 @@ https://github.com/bzamecnik/dump1090-archive
 https://github.com/slintak/adsb2influx
 """
 import abc
+import copy
 import logging
 import re
 import socket
@@ -272,13 +273,16 @@ class AdsbMessage:
 
     def __iter__(self):
         """
-        Yields an instance of itself with dynamically created or updated instance attributes.
+        Yields a copy of itself with dynamically created or updated instance attributes.
+
+        A copy of self is yielded to be threadsafe for use in a queue!
+
         :param msg: ADSb message string
         :return: Instance of itself updated with ADSb message values
         """
         for msg in self.__message_stream:
             self.__update_attributes(self.__normalize_msg(msg))
-            yield self
+            yield copy.copy(self)
 
     @staticmethod
     def length_ok(message):
