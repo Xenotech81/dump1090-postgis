@@ -23,10 +23,9 @@ SET row_security = off;
 -- Name: public; Type: SCHEMA; Schema: -; Owner: dump1090
 --
 
-CREATE SCHEMA public;
-
-
-ALTER SCHEMA public OWNER TO dump1090;
+-- A public schema must exist with the postgis extension at this point!
+-- CREATE SCHEMA public;
+-- ALTER SCHEMA public OWNER TO dump1090;
 
 --
 -- TOC entry 2064 (class 1247 OID 29028)
@@ -214,7 +213,7 @@ ALTER FUNCTION public.takeoffs_on(mydate date) OWNER TO dump1090;
 CREATE TABLE public.flights (
     id integer NOT NULL,
     hexident character varying(6) NOT NULL,
-    callsign character varying(7),
+    callsign character varying(10),
     first_seen timestamp(6) with time zone NOT NULL,
     last_seen timestamp(6) with time zone,
     intention character varying(9)

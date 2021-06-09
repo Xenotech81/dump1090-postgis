@@ -92,7 +92,7 @@ class Flight(Base):
     __tablename__ = 'flights'
     id = Column(Integer, primary_key=True)
     hexident = Column(String(6), nullable=False)
-    callsign = Column(String(7))
+    callsign = Column(String(10))
     # gen_date_time timestamp of the first ADSb message of this hexiden processed
     first_seen = Column(types.DateTime(timezone=True), nullable=False)
     # gen_date_time timestamp of (any) last ADSb message of this hexident
