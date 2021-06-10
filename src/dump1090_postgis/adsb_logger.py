@@ -22,7 +22,7 @@ class AdsbLogger:
     In both cases the threads are joined in a controlled manner.
     """
     _SENTINEL = object()
-    QSIZE = 10000
+    QSIZE = 100000
 
     def __init__(self, message_source: MessageStream, flights_pool: CurrentFlights):
         """Construct from message source (MessageStream instance) and message target (Flights instance)."""
@@ -46,6 +46,7 @@ class AdsbLogger:
             qsize = self._message_queue.qsize()
             if qsize > self._qsize_max:
                 self._qsize_max = qsize
+                log.info("New max Qsize: {}".format(qsize))
             log.debug("Current queue size: {} (max: {})".format(qsize, self._qsize_max))
 
             msg = self._message_queue.get()  # Queue.get() is blocking

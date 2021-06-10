@@ -85,7 +85,6 @@ class CurrentFlights:
 
         if adsb_message.hexident in self._flights.keys():
             self[adsb_message.hexident].update(adsb_message)
-            log.debug("Flight {} updated".format(adsb_message.hexident))
 
             self._commit_flights(period=self.DB_COMMIT_PERIOD)
             self.prune()
@@ -106,7 +105,7 @@ class CurrentFlights:
 
             self.__session.add(self._flights[adsb_message.hexident])
 
-            self._commit_flights()  # Immediate commit
+            self._commit_flights(period=self.DB_COMMIT_PERIOD)  # Immediate commit
             self.prune()
 
     def prune(self):

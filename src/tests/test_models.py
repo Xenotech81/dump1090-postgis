@@ -64,7 +64,8 @@ class TestFlightModel(unittest.TestCase):
         self.Flight._broadcast_takeoff = Mock()
 
         flight = self.Flight("Landing")
-        flight.identify_onground_change(position_onground)
+        flight._onground = False
+        flight.identify_onground_change(True)
 
         self.assertTrue(flight._broadcast_landing.called_once()), "The landing event must be broadcast to subscribers"
         self.assertEqual(flight.landed, self.position_1.time), "Timestamp of latest position must be the landing time"
@@ -80,7 +81,8 @@ class TestFlightModel(unittest.TestCase):
         self.Flight._broadcast_takeoff = Mock()
 
         flight = self.Flight("Takeoff")
-        flight.identify_onground_change(position_airborne)
+        flight._onground = True
+        flight.identify_onground_change(False)
 
         self.assertTrue(flight._broadcast_takeoff().called_once()), "The takeoff event must be broadcast to subscribers"
         self.assertEqual(flight.takeoff, self.position_1.time), "Timestamp of latest position must be the takeoff time"

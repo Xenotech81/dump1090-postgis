@@ -117,7 +117,7 @@ class Flight(Base):
         self._on_landing_subscribers = []
         self._on_takeoff_subscribers = []
 
-        self._ground_change_detected = False
+        self._onground = None
 
     def __str__(self):
         return "Flight {hexident}: last seen: {last_seen}".format(**self.__dict__)
@@ -198,8 +198,7 @@ class Flight(Base):
                                         srid=SRID),
                                     onground=adsb.onground)
                 self.positions.append(position)
-                self.identify_onground_change()
-                self.classify_intention()
+                self.update_onground(adsb.onground)
 
             else:
                 log.debug("Cannot update position as MSG3 did not include lon/lat: {}".format(str(adsb)))
@@ -211,10 +210,21 @@ class Flight(Base):
                                                                   srid=SRID),
                                            onground=adsb.onground)
                                   )
-            self.identify_onground_change()
-            self.classify_intention()
+            self.update_onground(adsb.onground)
 
         return self
+
+    def update_onground(self, onground):
+        """Flip the onground attribute of this flight and broadcast event."""
+
+        if self._onground is None:  # First position of new flight
+            self._onground = onground
+        elif self._onground and self._onground != onground:  # takeoff
+            self._onground = onground
+            self._broadcast_takeoff(self.positions[-1])
+        elif not self._onground and self._onground != onground:  # landing
+            self._onground = onground
+            self._broadcast_landing(self.positions[-1])
 
     def register_on_landing(self, subscriber):
         """Register an on-landing subscriber."""
@@ -233,56 +243,6 @@ class Flight(Base):
         """Call the callback of takeoff subscribers."""
         for subscriber in self._on_takeoff_subscribers:
             subscriber(position, self)
-
-    def identify_onground_change(self):
-        """Identify takeoff or landing event and emit message to subscribers."""
-
-        # Skip all checks if takeoff or landing was already previously detected for this flight to save CPU.
-        if self._ground_change_detected:
-            return
-        # Skip if we are handling the first position
-        elif len(self.positions) <= 1:
-            return
-        else:
-            current_position = self.positions[-1]
-            previous_position = self.positions[-2]
-            if current_position.onground and not previous_position.onground:
-                self._ground_change_detected = True
-                self._broadcast_landing(current_position)
-            elif not current_position.onground and previous_position.onground:
-                self._ground_change_detected = True
-                self._broadcast_takeoff(current_position)
-
-    def classify_intention(self):
-        """Updates the intention (arrival, departure, enroute) guessed from the shape of flight path.
-
-        Any new Flight is instantiated with intention=Intention.unknown.
-        Only if the *onground* flag of the first Position instance is True, the flight is classified as *departure*.
-        This means that departing flights which recording started only after they took off will be classified as
-        *enroute*.
-        An *arrival" flight is one which decreased its altitude since *first_seen* moment by ALT_DIFF_FOR_ARRIVAL.
-        If none of the above applies, the flight is classified as *enroute*.
-        """
-
-        # Altitude difference [meter] between first_ and last_seen time to classify the flight as arrival
-        ALT_DIFF_FOR_ARRIVAL = -300
-
-        # Classification as departure flight is quite reliable (first_seen position was 'onground')
-        # In this case, the classification can be kept and all other checks skipped
-        if self.intention == Intention.departure:
-            return self.intention
-
-        if self.positions[0].onground is None:
-            self.intention = Intention.unknown
-        elif self.positions[0].onground:
-            self.intention = Intention.departure
-        else:
-            if self.positions[-1].alt - self.positions[0].alt < ALT_DIFF_FOR_ARRIVAL:
-                self.intention = Intention.arrival
-            else:
-                self.intention = Intention.enroute
-
-        return self.intention
 
 
 class Landings(Base):
