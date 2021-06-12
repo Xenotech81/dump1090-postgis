@@ -175,7 +175,8 @@ class LandingAndTakeoffManager:
             runway = airport.get_runway(position.point, flight.interpolated_track)
             if runway:
                 self.__session.add(event_type(flight, position, runway))
-                log.info("{}: Flight {} just {} on runway {}!".format(position.time,
+                log.info("{}: Flight {} ({}) just {} on runway {}!".format(position.time,
+                                                                      flight.callsign,
                                                                       flight.hexident,
                                                                   'landed' if issubclass(event_type, models.Landings)
                                                                       else
