@@ -118,6 +118,7 @@ class Flight(Base):
         self._on_takeoff_subscribers = []
 
         self._onground = None
+        self._last_event = datetime.datetime.now(datetime.timezone.utc)
 
     def __str__(self):
         return "Flight {hexident}: last seen: {last_seen}".format(**self.__dict__)
@@ -236,13 +237,37 @@ class Flight(Base):
 
     def _broadcast_landing(self, position):
         """Call the callback of landing subscribers."""
-        for subscriber in self._on_landing_subscribers:
-            subscriber(position, self)
+        if self._valid_event(position):
+            for subscriber in self._on_landing_subscribers:
+                subscriber(position, self)
+        else:
+            log.warning(
+                "Suppressing landing event broadcast for flight {} at {}".format(position.flight_id, position.time))
 
     def _broadcast_takeoff(self, position):
         """Call the callback of takeoff subscribers."""
-        for subscriber in self._on_takeoff_subscribers:
-            subscriber(position, self)
+        if self._valid_event(position):
+            for subscriber in self._on_takeoff_subscribers:
+                subscriber(position, self)
+        else:
+            log.warning(
+                "Suppressing landing event broadcast for flight {} at {}".format(position.flight_id, position.time))
+
+    def _valid_event(self, position):
+        """Return true if the identified event (landing or takeoff) lies sufficiently apart from previous event.
+
+        Sometimes a landing airplane 'bounces' off the runway triggering several flips between onground statuses.
+        This leads to identification of several landing and takeoff events within 1-2sec. To prevent this, the position
+        time stamp of the current event is compared to any previous event, and if the time difference is below a short
+        threshold the new event should be discarded In this case False is returned by this method.
+
+        The new event timestamp overwrites the last event timestamp, as the time difference between the bounces matters,
+        and not between first and any following bounce.
+        """
+
+        valid = position.time - self._last_event > datetime.timedelta(seconds=2.0)
+        self._last_event = position.time
+        return valid
 
 
 class Landings(Base):
