@@ -1,0 +1,33 @@
+version: '3.4'
+
+services:
+
+  dump1090:
+    build: .
+    links:
+      - postgis
+    environment:
+      -...
+    depends_on:
+      - postgis
+
+  postgis:
+    image: mdillon/postgis
+    ports:
+      - "25432:5432"
+    volumes:
+      - dump1090:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=...
+      - POSTGRES_PASSWORD=...
+    !pseudo_dockerfile!:
+       - mkdir database
+       - mkdir /database/silhouettes
+       - cp -r database/* database
+       - unzip silhouttes.zip to /database/silhouettes
+       - psql-execute: /database/sql/create_meta_schema.sql
+       - psql-execute: \copy meta.airlines (name, alias, iata, icao, callsign, country, active) FROM '/database/airlines.csv' DELIMITER ',' CSV HEADER QUOTE '"' ESCAPE '''' NULL '\N';
+       - call sql method: select meta.load_aircraft()
+volumes:
+  dump1090:
+    name: dump1090
