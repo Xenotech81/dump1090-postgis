@@ -1,0 +1,2 @@
+airport-frequencies, airports, countries, navaids, regions, runways: https://ourairports.com
+airlines: https://resources.oreilly.com/learning-paths/graph-algorithms-in-practice/tree/master/data
