@@ -1,0 +1,8 @@
+
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+
+
+CREATE SCHEMA meta
+    AUTHORIZATION postgres;
+
+GRANT USAGE ON SCHEMA meta TO graphql;

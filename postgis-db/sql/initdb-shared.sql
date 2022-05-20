@@ -1,0 +1,4 @@
+
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO graphql;
+
