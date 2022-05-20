@@ -28,6 +28,8 @@ CREATE SCHEMA meta;
 
 ALTER SCHEMA meta OWNER TO dump1090;
 
+GRANT USAGE ON SCHEMA meta TO graphql;
+
 SET default_tablespace = '';
 
 --
