@@ -1,4 +1,4 @@
-CREATE ROLE "dump1090-logger" WITH
+CREATE ROLE "dump1090" WITH
   NOLOGIN
   NOSUPERUSER
   INHERIT
@@ -6,7 +6,7 @@ CREATE ROLE "dump1090-logger" WITH
   NOCREATEROLE
   NOREPLICATION
   CONNECTION LIMIT 10;
-COMMENT ON ROLE "dump1090-logger" IS 'Group for dump1090-postgis logging instances';
+COMMENT ON ROLE "dump1090" IS 'Group for dump1090-postgis logging instances';
 
 
 CREATE ROLE graphql WITH
