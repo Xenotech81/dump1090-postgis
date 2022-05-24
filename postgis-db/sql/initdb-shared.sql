@@ -1,6 +1,11 @@
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO dump1090;
 GRANT USAGE ON SCHEMA public TO graphql;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO dump1090;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO graphql;
+
 
 ----------------------------- SEQUENCES--------------------------------------
 -- SEQUENCE: aircraft_id_seq
