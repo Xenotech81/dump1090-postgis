@@ -37,7 +37,7 @@ CREATE OR REPLACE FUNCTION public.takeoffs_on_details(
     ROWS 1000
 AS $BODY$
 SELECT
-	e.id,
+	DISTINCT ON (e.id) e.id,
 	e.flight_id,
 	f.callsign,
 	a.name,
@@ -52,6 +52,7 @@ SELECT
 		join flights f on e.flight_id = f.id
 		left join meta.airlines a on a.icao = NULLIF( SUBSTRING (f.callsign, 1, 3), '')
 		left join meta.countries c on a.country = c.name
+	ORDER BY e.id
 
 $BODY$;
 
@@ -76,7 +77,7 @@ CREATE OR REPLACE FUNCTION public.landings_on_details(
     ROWS 1000
 AS $BODY$
 SELECT
-	e.id,
+	DISTINCT ON (e.id) e.id,
 	e.flight_id,
 	f.callsign,
 	a.name,
@@ -91,6 +92,7 @@ SELECT
 		join flights f on e.flight_id = f.id
 		left join meta.airlines a on a.icao = NULLIF( SUBSTRING (f.callsign, 1, 3), '')
 		left join meta.countries c on a.country = c.name
+	ORDER BY e.id
 
 $BODY$;
 
