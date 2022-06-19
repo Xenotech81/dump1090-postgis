@@ -50,7 +50,7 @@ SELECT
 	FROM
 		(SELECT * FROM takeoffs_on(mydate)) e
 		join flights f on e.flight_id = f.id
-		left join meta.airlines a on a.icao = SUBSTRING (f.callsign, 1, 3)
+		left join meta.airlines a on a.icao = NULLIF( SUBSTRING (f.callsign, 1, 3), '')
 		left join meta.countries c on a.country = c.name
 
 $BODY$;
@@ -89,7 +89,7 @@ SELECT
 	FROM
 		(SELECT * FROM landings_on(mydate)) e
 		join flights f on e.flight_id = f.id
-		left join meta.airlines a on a.icao = SUBSTRING (f.callsign, 1, 3)
+		left join meta.airlines a on a.icao = NULLIF( SUBSTRING (f.callsign, 1, 3), '')
 		left join meta.countries c on a.country = c.name
 
 $BODY$;
