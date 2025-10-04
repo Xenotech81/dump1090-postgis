@@ -18,7 +18,7 @@ SELECT
     nm.id,
     maestro.flight_id_of_noise(nm.campaign, nm.maxts_local) AS flight_id
 FROM maestro.noise_measurements nm
-WHERE (nm.maxts_local AT TIME ZONE 'Europe/Paris')::date BETWEEN DATE '2024-01-01' AND DATE '2024-01-02';
+WHERE (nm.maxts_local AT TIME ZONE 'Europe/Paris')::date BETWEEN (DATE '2024-07-01'AT TIME ZONE 'Europe/Paris') AND (DATE '2024-10-31'AT TIME ZONE 'Europe/Paris');
 
 
 -- Once the link table has been created, the view linking the noise_measurements
